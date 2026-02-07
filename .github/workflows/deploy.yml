@@ -1,0 +1,71 @@
+name: Deploy via Coolify
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    name: Trigger Coolify Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set Coolify webhook URL
+        id: webhook
+        run: |
+          if [[ "${{ steps.env.outputs.environment }}" == "production" ]]; then
+            echo "webhook_url=${{ secrets.COOLIFY_WEBHOOK_URL_PRODUCTION }}" >> $GITHUB_OUTPUT
+          else
+            echo "webhook_url=${{ secrets.COOLIFY_WEBHOOK_URL_STAGING }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger Coolify deployment
+        run: |
+          echo "Deploying to ${{ steps.env.outputs.environment }}..."
+
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET \
+            "${{ steps.webhook.outputs.webhook_url }}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}" \
+            --max-time 30)
+
+          echo "HTTP status: $response"
+
+          if [[ "$response" -ge 200 && "$response" -lt 300 ]]; then
+            echo "Deployment triggered successfully!"
+          else
+            echo "Failed to trigger deployment. HTTP status: $response"
+            exit 1
+          fi
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
