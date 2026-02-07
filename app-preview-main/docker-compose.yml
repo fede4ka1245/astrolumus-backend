@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  app-preview:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BACKEND_URL: ${BACKEND_URL}
+        BACKEND_API_TOKEN: ${BACKEND_API_TOKEN}
+    ports:
+      - "3000:3000"
+    environment:
+      - BACKEND_URL=${BACKEND_URL}
+      - BACKEND_API_TOKEN=${BACKEND_API_TOKEN}
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
+    driver: bridge
+

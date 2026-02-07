@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "HNTG967CAQ.com.alphaspace.app",
+        "paths": ["*"]
+      }
+    ]
+  }
+}

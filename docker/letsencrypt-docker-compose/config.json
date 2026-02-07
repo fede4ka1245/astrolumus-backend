@@ -1,0 +1,61 @@
+{
+  "domains": [
+    {
+      "domain": "backm.alpha-astro.com",
+      "email": "alfa.astrodev@gmail.com",
+      "wwwSubdomain": false,
+      "testCert": false,
+      "rsaKeySize": 4096,
+      "requestHandler": "reverseProxy",
+      "upstream": "127.0.0.1:8000",
+      "websockets": true,
+      "dnsResolver": "127.0.0.11"
+    },
+    {
+      "domain": "media.alpha-astro.com",
+      "email": "alfa.astrodev@gmail.com",
+      "wwwSubdomain": false,
+      "testCert": false,
+      "rsaKeySize": 4096,
+      "requestHandler": "reverseProxy",
+      "upstream": "127.0.0.1:9000",
+      "websockets": true,
+      "dnsResolver": "127.0.0.11"
+    },
+    {
+      "domain": "app.alpha-astro.com",
+      "email": "alfa.astrodev@gmail.com",
+      "wwwSubdomain": false,
+      "testCert": false,
+      "rsaKeySize": 4096,
+      "requestHandler": "reverseProxy",
+      "upstream": "127.0.0.1:3000",
+      "websockets": true,
+      "dnsResolver": "127.0.0.11"
+    },
+    {
+      "domain": "backm.alpha-astro.ru",
+      "email": "alfa.astrodev@gmail.com",
+      "wwwSubdomain": false,
+      "testCert": false,
+      "rsaKeySize": 4096,
+      "requestHandler": "reverseProxy",
+      "upstream": "127.0.0.1:8000",
+      "websockets": true,
+      "dnsResolver": "127.0.0.11"
+    },
+    {
+      "domain": "media.alpha-astro.ru",
+      "email": "alfa.astrodev@gmail.com",
+      "wwwSubdomain": false,
+      "testCert": false,
+      "rsaKeySize": 4096,
+      "requestHandler": "reverseProxy",
+      "upstream": "127.0.0.1:9000",
+      "websockets": true,
+      "dnsResolver": "127.0.0.11"
+    }
+  ],
+  "dhparamsSize": 2048,
+  "gzip": true
+}

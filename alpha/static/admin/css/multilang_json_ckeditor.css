@@ -1,0 +1,20 @@
+.mlj-widget .mlj-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 8px 0;
+  flex-wrap: wrap;
+}
+
+.mlj-widget .mlj-tabs button {
+  padding: 4px 10px;
+  border: 1px solid var(--border-color, #d1d1d1);
+  background: #f8f8f8;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.mlj-widget .mlj-tabs button.active {
+  background: #e7f0ff;
+  border-color: #79a6ff;
+}
+

@@ -1,0 +1,232 @@
+services:
+  postgres:
+    image: postgres:14.12-bullseye
+    restart: unless-stopped
+    expose:
+      - 5432
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 1
+      update_config:
+        order: stop-first
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2023-01-31T02-24-19Z
+    command: server --console-address ":9001" http://minio/data{1...2}
+    expose:
+      - "9000"
+      - "9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    hostname: minio
+    restart: unless-stopped
+    volumes:
+      - data1-1:/data1
+      - data1-2:/data2
+    ports:
+      - "9000:9000" # TODO close this
+      - "9001:9001" # TODO close this
+
+  preview-db:
+    image: postgres:14.12-bullseye
+    restart: unless-stopped
+    expose:
+      - 5433
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      - POSTGRES_USER=${PREVIEW_DB_USER}
+      - POSTGRES_PASSWORD=${PREVIEW_DB_PASSWORD}
+      - POSTGRES_DB=${PREVIEW_DB_NAME}
+    volumes:
+      - preview_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${PREVIEW_DB_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app-preview:
+    build:
+      context: ./app-preview-main
+      dockerfile: Dockerfile
+    image: alpha/app-preview:${APP_VERSION:-latest}
+    restart: unless-stopped
+    working_dir: /app
+    container_name: "app-preview"
+    env_file:
+      - .env
+    environment:
+      - BACKEND_URL=${BACKEND_URL}
+      - BACKEND_API_TOKEN=${BACKEND_API_TOKEN}
+      - NODE_ENV=production
+      - BASE_URL=https://app.alpha-astro.com
+      - DATABASE_URL=postgresql://${PREVIEW_DB_USER}:${PREVIEW_DB_PASSWORD}@${PREVIEW_DB_HOST}:${PREVIEW_DB_PORT}/${PREVIEW_DB_NAME}?connect_timeout=300
+    ports:
+      - "3000:3000"
+    command: "pm2-runtime start npm --name app -- run start -- -p 3000"
+    depends_on:
+      preview-db:
+        condition: service_healthy
+
+  celery:
+    restart: unless-stopped
+    image: alpha/celery:${APP_VERSION:-latest}
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: .deploy/celery/Dockerfile
+    volumes:
+      - .:/code
+    command: >
+      sh -c "
+        echo '====== Starting Pre-Deployment Tasks ======' &&
+        echo '--- Setting up environment ---' &&
+        chmod +x ./setup_env.sh &&
+        ./setup_env.sh &&
+        echo '--- Running Database Migrations ---' &&
+        ./manage.py makemigrations --merge --noinput || true && 
+        ./manage.py makemigrations --noinput &&
+        ./manage.py migrate --noinput &&
+        echo '--- Collecting Static Files ---' &&
+        ./manage.py collectstatic --noinput --clear &&
+        echo '--- Compiling Translation Messages ---' &&
+        ./manage.py compilemessages &&
+        echo '====== Pre-Deployment Tasks Completed ======' &&
+        celery -A alpha worker -E -l INFO -P solo
+      "
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      alpha-application:
+        condition: service_healthy
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_EXTERNAL_ENDPOINT=minio:9000
+      - DB_HOST=postgres
+
+  celery-beat:
+    restart: unless-stopped
+    image: alpha/celery-beat:${APP_VERSION:-latest}
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: .deploy/celery/Dockerfile
+    command: >
+      sh -c "
+        echo '====== Starting Pre-Deployment Tasks ======' &&
+        echo '--- Setting up environment ---' &&
+        chmod +x ./setup_env.sh &&
+        ./setup_env.sh &&
+        echo '--- Running Database Migrations ---' &&
+        ./manage.py makemigrations --merge --noinput || true && 
+        ./manage.py makemigrations --noinput &&
+        ./manage.py migrate --noinput &&
+        echo '--- Collecting Static Files ---' &&
+        ./manage.py collectstatic --noinput --clear &&
+        echo '--- Compiling Translation Messages ---' &&
+        ./manage.py compilemessages &&
+        echo '====== Pre-Deployment Tasks Completed ======' &&
+        celery -A alpha beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+      "
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      alpha-application:
+        condition: service_healthy
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_EXTERNAL_ENDPOINT=minio:9000
+      - DB_HOST=postgres
+
+  alpha-application:
+    restart: unless-stopped
+    image: alpha/app:${APP_VERSION:-latest}
+    expose:
+      - 8091
+    env_file:
+      - .env
+    ports:
+      - "8091:8091"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl http://localhost:8091/ || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    command: >
+      sh -c "
+        echo '====== Starting Pre-Deployment Tasks ======' &&
+        echo '--- Setting up environment ---' &&
+        chmod +x ./setup_env.sh &&
+        ./setup_env.sh &&
+        echo '--- Running Database Migrations ---' &&
+        ./manage.py makemigrations --merge --noinput || true && 
+        ./manage.py makemigrations --noinput &&
+        ./manage.py migrate --noinput &&
+        echo '--- Collecting Static Files ---' &&
+        ./manage.py collectstatic --noinput --clear &&
+        echo '--- Compiling Translation Messages ---' &&
+        ./manage.py compilemessages &&
+        echo '====== Pre-Deployment Tasks Completed ======' &&
+        gunicorn --workers=${APP_WORKERS} --bind 0.0.0.0:8091 --log-level=info alpha.wsgi
+      "
+
+volumes:
+  nginx_conf_ssl:
+  letsencrypt_certs:
+  certbot_acme_challenge:
+  postgres_data:
+  preview_data:
+  data1-1:
+  data1-2:
+  redis:

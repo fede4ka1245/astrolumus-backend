@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target" : { "namespace": "android_app", "package_name": "ru.alphaspace.app",
+      "sha256_cert_fingerprints": ["D5:6B:E8:CC:FD:BC:5E:CC:D8:D3:36:B4:48:FA:D3:88:9E:CC:13:D7:BB:36:90:7A:6F:78:66:38:60:6C:FC:04"] }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target" : { "namespace": "android_app", "package_name": "com.alphaspace.app",
+      "sha256_cert_fingerprints": ["D5:6B:E8:CC:FD:BC:5E:CC:D8:D3:36:B4:48:FA:D3:88:9E:CC:13:D7:BB:36:90:7A:6F:78:66:38:60:6C:FC:04"] }
+  }
+]
