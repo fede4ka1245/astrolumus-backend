@@ -8,12 +8,14 @@ from utils.multilinguality import LocalizedModelAdmin
 
 @admin.register(Constellation)
 class ConstellationAdmin(LocalizedModelAdmin):
+    tolgee_namespace = "constellations"
     localized_fields = ("title", "description")
     list_display = ("default_localized_title", )
 
 
 @admin.register(Star)
 class StarAdmin(LocalizedModelAdmin):
+    tolgee_namespace = "stars"
     localized_fields = ("title", "area", "comment")
     list_display = ("default_localized_title", "stellar_object_type", "img_preview", "custom_id")
     list_filter = ("custom_id",)
@@ -45,11 +47,13 @@ class YearAdmin(admin.ModelAdmin):
 
 @admin.register(StellarObjectType)
 class StellarObjectTypeAdmin(LocalizedModelAdmin):
+    tolgee_namespace = "stellar_types"
     localized_fields = ("name", "comment")
     list_display = ("default_localized_name", "custom_id")
 
 
 @admin.register(Information)
 class InformationAdmin(LocalizedModelAdmin):
+    tolgee_namespace = "sky_info"
     localized_fields = ("title", "description")
     list_display = ("default_localized_title", "published_at")

@@ -2,6 +2,7 @@ from ckeditor_uploader.fields import RichTextUploadingField
 from colorfield.fields import ColorField
 from django_minio_backend import MinioBackend
 from django.db import models
+from django.utils.html import strip_tags
 
 from utils.multilinguality import get_default_language_value_admin
 
@@ -72,9 +73,11 @@ class Banner(models.Model):
     )
 
     def __str__(self):
-        return get_default_language_value_admin(self.title)
+        return strip_tags(get_default_language_value_admin(self.title) or "").strip()
 
     class Meta:
         db_table = "banners"
-        verbose_name = "Баннер"
-        verbose_name_plural = "Баннеры"
+        verbose_name = "Баннер (устаревший)"
+        verbose_name_plural = "Баннеры (устаревшие)"
+
+

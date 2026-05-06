@@ -7,6 +7,7 @@ from django.db.models import Q, F, Subquery, UniqueConstraint
 from django.utils import timezone
 from django.utils.timezone import now
 from django.conf import settings
+from django.utils.html import strip_tags
 
 from utils.multilinguality import get_default_language_value_admin
 
@@ -16,15 +17,14 @@ User = get_user_model()
 class TariffManager(models.Manager):
     # DEPRECATED FIXME
     def get_user_tariff(self, user):
+        import logging
+        logger = logging.getLogger(__name__)
+
         last_activation = ActivationTariff.objects.filter(user=user).order_by("-created_at").first()
         # if not exist or validity days ends
         if not last_activation or (
                 last_activation.tariff.validity_days > 0 and timezone.now() > last_activation.created_at + timedelta(
             days=last_activation.tariff.validity_days)):
-            # # find first workings tariff
-            # default_tariff = self.filter(Q(start_datetime__isnull=True) | Q(start_datetime__lte=timezone.now()),
-            #                              Q(end_datetime__isnull=True) | Q(end_datetime__gte=timezone.now())).order_by(
-            #     "-priority_for_default").first()
 
             all_prevs_activations_count = ActivationTariff.objects.filter(user=user).count()
             has_guest_tariff = getattr(settings, 'HAS_GUEST_TARIFF', 'False') == 'True'
@@ -38,10 +38,12 @@ class TariffManager(models.Manager):
                 try:
                     default_tariff = self.get(tariff_renew_wait=True)
                 except Tariff.DoesNotExist:
-                    raise Exception("you need to add set tariff_renew_wait tariff")
+                    logger.error("No tariff_renew_wait tariff configured — user %s has no active tariff", user.pk)
+                    return None
 
             if not default_tariff:
-                raise Exception("you need to add at least one tariff")
+                logger.error("No default tariff found — user %s has no active tariff", user.pk)
+                return None
 
             last_activation = ActivationTariff.objects.create(tariff=default_tariff, user=user)
 
@@ -58,6 +60,9 @@ class TariffManager(models.Manager):
 
         # if not find
         if last_activations.count() == 0:
+            import logging
+            logger = logging.getLogger(__name__)
+
             all_prevs_activations_count = ActivationTariff.objects.filter(user=user).count()
             has_guest_tariff = getattr(settings, 'HAS_GUEST_TARIFF', 'False') == 'True'
             # USER just registered
@@ -71,10 +76,12 @@ class TariffManager(models.Manager):
                 try:
                     default_tariff = self.get(tariff_renew_wait=True)
                 except Tariff.DoesNotExist:
-                    raise Exception("you need to add set tariff_renew_wait tariff")
+                    logger.error("No tariff_renew_wait tariff configured — user %s has no active tariff", user.pk)
+                    return self.none()
 
             if not default_tariff:
-                raise Exception("you need to add at least one tariff")
+                logger.error("No default tariff found — user %s has no active tariff", user.pk)
+                return self.none()
 
             x = ActivationTariff.objects.create(tariff=default_tariff, user=user)
             tariffs_ids = [x.tariff_id, ]
@@ -156,7 +163,7 @@ class Tariff(models.Model):
     objects = TariffManager()
 
     def __str__(self):
-        return get_default_language_value_admin(self.title)
+        return strip_tags(get_default_language_value_admin(self.title) or "").strip()
 
     class Meta:
         verbose_name = "Тариф"

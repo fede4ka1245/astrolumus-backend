@@ -21,6 +21,21 @@ from utils.multilinguality import get_default_language_code
 User = get_user_model()
 
 
+def _resolve_language_code(request):
+    lang = request.GET.get("language_code")
+    if lang:
+        return lang
+    accept_lang = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
+    if accept_lang:
+        primary = accept_lang.split(',')[0].split(';')[0].strip().split('-')[0].lower()
+        if primary:
+            return primary
+    user = request.user
+    if user and user.is_authenticated and getattr(user, 'language', None):
+        return user.language.split('-')[0].lower()
+    return get_default_language_code()
+
+
 @api_view(['POST'])
 @transaction.atomic
 def payment_from_site(request):
@@ -49,9 +64,6 @@ def payment_from_site(request):
 
         # activate tariff
         if user and tariff_paid:
-            # create default tariff
-            Tariff.objects.get_user_tariffs(user=user)
-
             # try to find last activate tariff or already activate tariff from group
             last_activations = ActivationTariff.objects.filter(user=user).filter(
                 Q(Q(tariff__validity_days__gt=0)
@@ -112,7 +124,10 @@ def check_user_exist(request):
 @permission_classes([IsAuthenticated])
 def current_user_tariff(request):
     tariff = Tariff.objects.get_user_tariff(user=request.user)
-    serializer = TariffSerializer(tariff, context={"request": request})
+    if tariff is None:
+        return Response(status=status.HTTP_200_OK, data=None)
+    language_code = _resolve_language_code(request)
+    serializer = TariffSerializer(tariff, context={"request": request, "language_code": language_code})
 
     return Response(status=status.HTTP_200_OK, data=serializer.data)
 
@@ -121,7 +136,9 @@ def current_user_tariff(request):
 @permission_classes([IsAuthenticated])
 def current_user_tariffs(request):
     tariffs = Tariff.objects.get_user_tariffs(user=request.user)
-    serializer = TariffSerializer(tariffs, many=True, context={"request": request})
+
+    language_code = _resolve_language_code(request)
+    serializer = TariffSerializer(tariffs, many=True, context={"request": request, "language_code": language_code})
 
     return Response(status=status.HTTP_200_OK, data=serializer.data)
 
@@ -138,8 +155,22 @@ def public_tariffs(request):
         # Return full data with all languages
         serializer = FullTariffSerializer(tariffs, many=True)
     else:
-        # Return localized data for specific language
-        language_code = lang if lang in ['ru', 'en', 'uk', 'pl'] else get_default_language_code()
+        # Determine language: query param > Accept-Language > user preference > default
+        language_code = None
+        if lang and lang in ['ru', 'en', 'uk', 'pl']:
+            language_code = lang
+        if not language_code:
+            accept_lang = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
+            if accept_lang:
+                primary = accept_lang.split(',')[0].split(';')[0].strip().split('-')[0].lower()
+                if primary:
+                    language_code = primary
+        if not language_code:
+            user = request.user
+            if user and user.is_authenticated and getattr(user, 'language', None):
+                language_code = user.language.split('-')[0].lower()
+        if not language_code:
+            language_code = get_default_language_code()
         serializer = PublicTariffSerializer(
             tariffs,
             many=True,

@@ -9,6 +9,8 @@ class StellarObjectTypeSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = "stellar_types"
+    tolgee_key_prefix = "stype"
     localized_fields = ("name", "comment")
 
     class Meta:
@@ -26,6 +28,8 @@ class ConstellationSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = "constellations"
+    tolgee_key_prefix = "const"
     localized_fields = ("title", "description")
 
     class Meta:
@@ -37,6 +41,7 @@ class StarSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = "stars"
     localized_fields = ("title", "comment")
     upload_image = serializers.ImageField(required=True)
 
@@ -60,6 +65,7 @@ class StarListSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = "stars"
     localized_fields = ("title", "comment", "area")
     years = YearSerializer(many=True, allow_null=True, required=False)
 

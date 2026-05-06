@@ -1,0 +1,83 @@
+{% extends "admin/base_site.html" %}
+
+{% block userlinks %}
+    <a href="/admin/analytics/" style="color:#fff;text-decoration:none;font-weight:bold;margin-right:8px;">P&L</a>
+    &nbsp;|&nbsp;
+    <span class="lang-switcher">
+        <select id="admin-language-select" onchange="switchLanguage(this.value)">
+            {% for lang in tolgee_languages %}
+                <option value="{{ lang.code }}"
+                        {% if lang.code == current_language %}selected{% endif %}>
+                    {{ lang.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </span>
+    &nbsp;|&nbsp;
+    {{ block.super }}
+{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <style>
+        #admin-language-select {
+            padding: 2px 6px;
+            border: 1px solid var(--border-color, #d1d1d1);
+            border-radius: 4px;
+            background: var(--body-bg, #fff);
+            color: var(--body-fg, #333);
+            font-size: 0.8125rem;
+            cursor: pointer;
+        }
+        .lang-switcher {
+            display: inline-block;
+            vertical-align: middle;
+        }
+    </style>
+    <script>
+        function switchLanguage(langCode) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/admin/set-language/';
+            form.style.display = 'none';
+
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]')
+                ? document.querySelector('[name=csrfmiddlewaretoken]').value
+                : getCookie('csrftoken');
+            form.appendChild(csrfInput);
+
+            var langInput = document.createElement('input');
+            langInput.type = 'hidden';
+            langInput.name = 'language';
+            langInput.value = langCode;
+            form.appendChild(langInput);
+
+            var nextInput = document.createElement('input');
+            nextInput.type = 'hidden';
+            nextInput.name = 'next';
+            nextInput.value = window.location.pathname;
+            form.appendChild(nextInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+{% endblock %}

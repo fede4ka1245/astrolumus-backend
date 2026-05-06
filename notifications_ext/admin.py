@@ -23,6 +23,7 @@ class NotificationPageAdmin(admin.ModelAdmin):
 
 @admin.register(NotificationTask)
 class NotificationTaskAdmin(LocalizedModelAdmin):
+    tolgee_namespace = None
     localized_fields = ("verb", "description")
     list_display = ("id", "default_localized_verb", "default_localized_description", "timestamp")
     readonly_fields = ('sent', )
@@ -32,5 +33,6 @@ admin.site.register(NotificationPageType)
 admin.site.register(NotificationPageGroup)
 @admin.register(Tag)
 class TagAdmin(LocalizedModelAdmin):
+    tolgee_namespace = None
     localized_fields = ("title",)
     list_display = ("id", "default_localized_title", "alias", "color")

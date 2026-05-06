@@ -12,6 +12,8 @@ class AstroprocessorDataSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = "astroprocessor_data"
+    tolgee_key_prefix = "data"
     type_name = serializers.SerializerMethodField('get_type_name')
     type_id = serializers.SerializerMethodField()
     localized_fields = ("name", "description")
@@ -35,6 +37,8 @@ class SignPlanetConnectionSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = "sign_planet"
+    tolgee_key_prefix = "sp"
     localized_fields = ("name", "description")
 
     class Meta:
@@ -46,6 +50,8 @@ class PlanetHouseConnectionSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = "planet_house"
+    tolgee_key_prefix = "ph"
     localized_fields = ("name", "description")
 
     class Meta:
@@ -57,6 +63,8 @@ class MasterHouseConnectionSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = "master_house"
+    tolgee_key_prefix = "mh"
     localized_fields = ("name", "description")
 
     class Meta:

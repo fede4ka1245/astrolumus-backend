@@ -81,6 +81,7 @@ class TagSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = None
     localized_fields = ("title", )
 
     class Meta:

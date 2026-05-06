@@ -23,6 +23,7 @@ class TagSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = None
     localized_fields = ("title", )
 
     class Meta:
@@ -34,6 +35,7 @@ class BannerSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = None
     localized_fields = ("title", "description", "video_link")
     banner_type = BannerTypeSerializer(many=True)
     previews = serializers.SerializerMethodField()

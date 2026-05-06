@@ -645,37 +645,10 @@ class StripeCallbackView(View):
                         else:
                             logger.warning(f"⚠️ Order {order_id} already has status {order.status}, skipping status update")
 
-                        tariff_name = None
-                        if order.tariff and order.tariff.title:
-                            from utils.multilinguality import get_language_value
-                            tariff_name = get_language_value(order.tariff.title, 'ru')
-
-                        payment_record, created = PaymentRecord.objects.get_or_create(
-                            payment_system=PaymentRecord.PaymentSystems.STRIPE,
-                            payment_id=session_id,
-                            defaults={
-                                "user": order.user,
-                                "order": order,
-                                "user_first_name": order.user.first_name if order.user else None,
-                                "user_last_name": order.user.last_name if order.user else None,
-                                "user_email": order.user.email if order.user else None,
-                                "merchant_first_name": customer_first_name,
-                                "merchant_last_name": customer_last_name,
-                                "merchant_email": customer_email,
-                                "tariff_name": tariff_name,
-                                "amount": order.amount,
-                                "currency": order.currency,
-                                "status": PaymentRecord.PaymentStatuses.SUCCESS,
-                                "raw_data": dict(session),
-                                "is_recurring": (mode == "subscription"),
-                            },
-                        )
-                        if created:
-                            print(f"📝 Created PaymentRecord for order {order_id} (recurring: {mode == 'subscription'})")
-                        else:
-                            logger.warning(f"⚠️ PaymentRecord already exists for Stripe session {session_id}, skipping")
-
-                        # If this is a subscription, create RecurringSubscription record
+                        # For subscriptions: only create RecurringSubscription here.
+                        # PaymentRecord + tariff activation are handled by invoice.paid
+                        # (which fires right after for the first period and on every renewal).
+                        # Creating them here too would cause duplicates.
                         if mode == "subscription" and subscription_id and order.tariff and order.user:
                             subscription_obj = stripe.Subscription.retrieve(subscription_id)
 
@@ -705,9 +678,40 @@ class StripeCallbackView(View):
                             )
                             print(f"📝 Created/Updated RecurringSubscription {subscription_id} for order {order_id}")
 
-                        if created and order.tariff and order.user:
-                            print(f"🎯 Activating tariff {order.tariff.code} for user {order.user.email}")
-                            activate_user_tariff.delay(order.user.id, order.tariff.code, str(order.id))
+                        # For one-time payments only: create PaymentRecord and activate tariff
+                        if mode == "payment":
+                            from django.utils.html import strip_tags
+                            tariff_name = None
+                            if order.tariff and order.tariff.title:
+                                tariff_name = strip_tags(get_language_value(order.tariff.title, 'ru') or "").strip() or None
+
+                            payment_record, created = PaymentRecord.objects.get_or_create(
+                                payment_system=PaymentRecord.PaymentSystems.STRIPE,
+                                payment_id=session_id,
+                                defaults={
+                                    "user": order.user,
+                                    "order": order,
+                                    "user_first_name": order.user.first_name if order.user else None,
+                                    "user_last_name": order.user.last_name if order.user else None,
+                                    "user_email": order.user.email if order.user else None,
+                                    "merchant_first_name": customer_first_name,
+                                    "merchant_last_name": customer_last_name,
+                                    "merchant_email": customer_email,
+                                    "tariff_name": tariff_name,
+                                    "amount": order.amount,
+                                    "currency": order.currency,
+                                    "status": PaymentRecord.PaymentStatuses.SUCCESS,
+                                    "raw_data": dict(session),
+                                    "is_recurring": False,
+                                },
+                            )
+                            if created:
+                                print(f"📝 Created PaymentRecord for order {order_id} (one-time)")
+                                if order.tariff and order.user:
+                                    print(f"🎯 Activating tariff {order.tariff.code} for user {order.user.email}")
+                                    activate_user_tariff.delay(order.user.id, order.tariff.code, str(order.id))
+                            else:
+                                logger.warning(f"⚠️ PaymentRecord already exists for Stripe session {session_id}, skipping")
 
                         if order.course:
                             Curriculum.objects.get_or_create(user=order.user, course=order.course)
@@ -761,7 +765,8 @@ class StripeCallbackView(View):
                     tariff_name = None
                     if recurring_sub.tariff and recurring_sub.tariff.title:
                         from utils.multilinguality import get_language_value
-                        tariff_name = get_language_value(recurring_sub.tariff.title, 'ru')
+                        from django.utils.html import strip_tags
+                        tariff_name = strip_tags(get_language_value(recurring_sub.tariff.title, 'ru') or "").strip() or None
 
                     invoice_id = invoice.get("id")
                     if not invoice_id:
@@ -935,9 +940,10 @@ class BepaidCallBackView(View):
 
                     tariff_name = None
                     if order.tariff and order.tariff.title:
+                        from django.utils.html import strip_tags
                         from utils.multilinguality import get_language_value
 
-                        tariff_name = get_language_value(order.tariff.title, "ru")
+                        tariff_name = strip_tags(get_language_value(order.tariff.title, "ru") or "").strip() or None
 
                     checkout_token = checkout_obj.get("token") or json_data.get("token")
                     is_recurring = (

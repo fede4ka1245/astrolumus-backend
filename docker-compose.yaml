@@ -12,11 +12,13 @@ services:
       - POSTGRES_DB=${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data/
+      - ./docker/init-scripts:/docker-entrypoint-initdb.d
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-alpha}" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 15
+      start_period: 30s
     deploy:
       replicas: 1
       update_config:
@@ -58,6 +60,26 @@ services:
       - "9000:9000" # TODO close this
       - "9001:9001" # TODO close this
 
+  analytics-db:
+    image: postgres:14.12-bullseye
+    restart: unless-stopped
+    expose:
+      - 5432
+    ports:
+      - "127.0.0.1:5434:5432"
+    environment:
+      - POSTGRES_USER=${ANALYTICS_DB_USER:-analytics}
+      - POSTGRES_PASSWORD=${ANALYTICS_DB_PASSWORD:-analytics123}
+      - POSTGRES_DB=${ANALYTICS_DB_NAME:-analytics}
+    volumes:
+      - analytics_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U analytics" ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
   preview-db:
     image: postgres:14.12-bullseye
     restart: unless-stopped
@@ -66,16 +88,17 @@ services:
     ports:
       - "127.0.0.1:5433:5432"
     environment:
-      - POSTGRES_USER=${PREVIEW_DB_USER}
-      - POSTGRES_PASSWORD=${PREVIEW_DB_PASSWORD}
-      - POSTGRES_DB=${PREVIEW_DB_NAME}
+      - POSTGRES_USER=${PREVIEW_DB_USER:-app_preview}
+      - POSTGRES_PASSWORD=${PREVIEW_DB_PASSWORD:-d43skeJSWn7365}
+      - POSTGRES_DB=${PREVIEW_DB_NAME:-app_preview}
     volumes:
       - preview_data:/var/lib/postgresql/data/
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${PREVIEW_DB_USER}" ]
+      test: [ "CMD-SHELL", "pg_isready -U app_preview" ]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 15
+      start_period: 30s
 
   app-preview:
     build:
@@ -178,6 +201,40 @@ services:
       - MINIO_EXTERNAL_ENDPOINT=minio:9000
       - DB_HOST=postgres
 
+  tolgee:
+    image: tolgee/tolgee:latest
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      TOLGEE_AUTHENTICATION_ENABLED: "true"
+      TOLGEE_AUTHENTICATION_INITIAL_USERNAME: "${TOLGEE_ADMIN_USER:-admin}"
+      TOLGEE_AUTHENTICATION_INITIAL_PASSWORD: "${TOLGEE_ADMIN_PASSWORD:-tolgee_admin_2024}"
+      TOLGEE_MACHINE_TRANSLATION_ENABLED: "false"
+      SERVER_PORT: "8085"
+      HEALTHCHECK_PORT: "8085"
+    volumes:
+      - tolgee_data:/data
+
+  metabase:
+    image: metabase/metabase:latest
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${DB_USER}
+      MB_DB_PASS: ${DB_PASSWORD}
+      MB_DB_HOST: postgres
+      MB_EMBEDDING_SECRET_KEY: ${METABASE_SECRET_KEY:-your-metabase-secret-key-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - metabase_data:/metabase-data
+
   alpha-application:
     restart: unless-stopped
     image: alpha/app:${APP_VERSION:-latest}
@@ -229,4 +286,7 @@ volumes:
   preview_data:
   data1-1:
   data1-2:
+  tolgee_data:
+  analytics_data:
+  metabase_data:
   redis:

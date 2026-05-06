@@ -92,20 +92,20 @@ class MasterHouseConnectionView(
 
     @swagger_auto_schema(
         manual_parameters=[
-            openapi.Parameter('house', in_=openapi.IN_QUERY, type=openapi.TYPE_NUMBER),
-            openapi.Parameter('planet', in_=openapi.IN_QUERY, type=openapi.TYPE_NUMBER),
+            openapi.Parameter('master_house', in_=openapi.IN_QUERY, type=openapi.TYPE_NUMBER),
+            openapi.Parameter('at_house', in_=openapi.IN_QUERY, type=openapi.TYPE_NUMBER),
         ],
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        house_param = self.request.query_params.get('house', None)
-        if house_param:
-            self.queryset = self.queryset.filter(house=house_param)
+        master_house_param = self.request.query_params.get('master_house', None)
+        if master_house_param:
+            self.queryset = self.queryset.filter(master_house=master_house_param)
 
-        planet_param = self.request.query_params.get('planet', None)
-        if planet_param:
-            self.queryset = self.queryset.filter(planet=planet_param)
+        at_house_param = self.request.query_params.get('at_house', None)
+        if at_house_param:
+            self.queryset = self.queryset.filter(at_house=at_house_param)
 
         return self.queryset

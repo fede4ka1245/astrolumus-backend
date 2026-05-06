@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gettext \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /code
+
+# Install Python deps at build time — code is mounted at runtime via volume
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -U pip && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
+
+EXPOSE 8091

@@ -17,20 +17,22 @@ def _normalize_language_code(code: str) -> str:
 
 
 def _languages_for_tabs():
-    # Пытаемся получить языки из модели AppLanguage (users > Языки приложения)
+    # 1. AppLanguage model filtered by enabled=True — источник истины
     try:
         from django.apps import apps
 
         model_path = getattr(settings, "APP_LANGUAGE_MODEL", None)
         if model_path:
             AppLanguage = apps.get_model(model_path)
-            languages = list(AppLanguage.objects.values_list("code", "name"))
+            languages = list(
+                AppLanguage.objects.filter(enabled=True).values_list("code", "name")
+            )
             if languages:
                 return languages
     except Exception:
         pass
 
-    # Fallback: settings.LANGUAGES
+    # 2. Fallback: settings.LANGUAGES
     languages = []
     seen = set()
     for code, label in getattr(settings, "LANGUAGES", []):
@@ -46,9 +48,9 @@ def _languages_for_tabs():
 
 class MultilangJSONCKEditorWidget(forms.Widget):
     _INLINE_CSS = """
-.mlj-widget .mlj-tabs{display:flex;gap:6px;margin:0 0 8px 0;flex-wrap:wrap}
-.mlj-widget .mlj-tabs button{padding:4px 10px;border:1px solid var(--border-color,#d1d1d1);background:#f8f8f8;cursor:pointer;border-radius:999px}
-.mlj-widget .mlj-tabs button.active{background:#e7f0ff;border-color:#79a6ff}
+.mlj-widget .mlj-tabs,.mlj-text-widget .mlj-tabs{display:flex;gap:6px;margin:0 0 8px 0;flex-wrap:wrap}
+.mlj-widget .mlj-tabs button,.mlj-text-widget .mlj-tabs button{padding:4px 10px;border:1px solid var(--border-color,#d1d1d1);background:#f8f8f8;cursor:pointer;border-radius:999px}
+.mlj-widget .mlj-tabs button.active,.mlj-text-widget .mlj-tabs button.active{background:#e7f0ff;border-color:#79a6ff}
 """.strip()
 
     _INLINE_JS = r"""
@@ -253,4 +255,169 @@ class MultilangJSONCKEditorWidget(forms.Widget):
             hidden_id,
             hidden_value,
             editor_html,
+        )
+
+
+class MultilangJSONTextInputWidget(forms.Widget):
+    """Language-tabbed widget using a plain <input type="text"> — for short fields like title, price, link."""
+
+    _INLINE_CSS = MultilangJSONCKEditorWidget._INLINE_CSS
+
+    _INLINE_JS = r"""
+(function(){
+  if (window.__mlj_text_init__ === true) return;
+  window.__mlj_text_init__ = true;
+
+  function parseLanguages(el){
+    try { return JSON.parse(el.getAttribute("data-languages") || "[]"); } catch(e){ return []; }
+  }
+  function safeJsonParse(text){
+    try {
+      var obj = JSON.parse(text || "{}");
+      return obj && typeof obj === "object" && !Array.isArray(obj) ? obj : {};
+    } catch(e){ return {}; }
+  }
+  function setActiveTab(container, lang){
+    var tabs = container.querySelectorAll(".mlj-tabs button");
+    for (var i=0;i<tabs.length;i++){
+      tabs[i].classList.toggle("active", tabs[i].getAttribute("data-lang") === lang);
+    }
+  }
+  function initWidget(container){
+    if (container.getAttribute("data-mlj-text-initialized") === "1") return;
+    container.setAttribute("data-mlj-text-initialized", "1");
+
+    var hiddenId = container.getAttribute("data-hidden-id");
+    var inputId = container.getAttribute("data-editor-id");
+    var hidden = document.getElementById(hiddenId);
+    var input = document.getElementById(inputId);
+    if (!hidden || !input) return;
+
+    var languages = parseLanguages(container);
+    if (!languages.length) return;
+
+    var state = safeJsonParse(hidden.value);
+    for (var i=0;i<languages.length;i++){
+      var code = languages[i].code;
+      if (typeof state[code] !== "string") state[code] = "";
+    }
+
+    var activeLang = languages[0].code;
+    setActiveTab(container, activeLang);
+    input.value = state[activeLang] || "";
+
+    function syncHidden(){ hidden.value = JSON.stringify(state); }
+
+    input.addEventListener("input", function(){ state[activeLang] = input.value; syncHidden(); });
+
+    var form = container.closest("form");
+    if (form){
+      form.addEventListener("submit", function(){ state[activeLang] = input.value; syncHidden(); }, {capture:true});
+    }
+
+    var tabs = container.querySelectorAll(".mlj-tabs button");
+    for (var i=0;i<tabs.length;i++){
+      tabs[i].addEventListener("click", function(e){
+        var nextLang = e.currentTarget.getAttribute("data-lang");
+        if (!nextLang || nextLang === activeLang) return;
+        state[activeLang] = input.value;
+        activeLang = nextLang;
+        setActiveTab(container, activeLang);
+        input.value = state[activeLang] || "";
+        syncHidden();
+      });
+    }
+    syncHidden();
+  }
+
+  function initAll(){
+    var widgets = document.querySelectorAll(".mlj-text-widget");
+    for (var i=0;i<widgets.length;i++) initWidget(widgets[i]);
+  }
+
+  if (window.django && django.jQuery){
+    django.jQuery(function(){
+      initAll();
+      django.jQuery(document).on("formset:added", function(){ initAll(); });
+    });
+  } else {
+    document.addEventListener("DOMContentLoaded", initAll);
+  }
+})();
+""".strip()
+
+    def __init__(self, attrs=None, languages=None):
+        super().__init__(attrs)
+        self.languages = languages or _languages_for_tabs()
+
+    def _inline_assets_html(self):
+        return format_html(
+            "<style>{}</style><script>{}</script>",
+            mark_safe(self._INLINE_CSS),
+            mark_safe(self._INLINE_JS),
+        )
+
+    def format_value(self, value):
+        if value in (None, "", b""):
+            return "{}"
+        if isinstance(value, dict):
+            return json.dumps(value, ensure_ascii=False)
+        if isinstance(value, str):
+            value = value.strip()
+            return value if value else "{}"
+        return json.dumps({}, ensure_ascii=False)
+
+    def _parse_value(self, value):
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str):
+            try:
+                loaded = json.loads(value) if value.strip() else {}
+            except Exception:
+                return {}
+            return loaded if isinstance(loaded, dict) else {}
+        return {}
+
+    def render(self, name, value, attrs=None, renderer=None):
+        attrs = attrs or {}
+        hidden_id = attrs.get("id") or f"id_{name}"
+        input_id = f"{hidden_id}__ml_input"
+
+        parsed = self._parse_value(value)
+        languages = list(self.languages)
+        active_lang = languages[0][0]
+        input_value = parsed.get(active_lang, "") or ""
+        hidden_value = self.format_value(parsed)
+
+        tabs_html = format_html(
+            '<div class="mlj-tabs">{}</div>',
+            format_html_join(
+                "",
+                '<button type="button" data-lang="{}">{}</button>',
+                ((code, label) for code, label in languages),
+            ),
+        )
+        languages_json = json.dumps(
+            [{"code": code, "label": label} for code, label in languages],
+            ensure_ascii=False,
+        )
+        inline_assets_html = self._inline_assets_html()
+
+        return format_html(
+            '<div class="mlj-text-widget" data-hidden-id="{}" data-editor-id="{}" data-languages="{}">'
+            "{}"
+            "{}"
+            '<input type="hidden" name="{}" id="{}" value="{}" />'
+            '<input type="text" id="{}" value="{}" style="width:100%;box-sizing:border-box" />'
+            "</div>",
+            hidden_id,
+            input_id,
+            languages_json,
+            tabs_html,
+            inline_assets_html,
+            name,
+            hidden_id,
+            hidden_value,
+            input_id,
+            input_value,
         )

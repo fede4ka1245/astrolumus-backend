@@ -9,6 +9,8 @@ from notifications.models import Notification as InnerNotification
 import sentry_sdk
 import logging
 
+from django.utils.html import strip_tags
+
 from misc.constants import USER_CONTENT_TYPE_ID
 from utils.multilinguality import get_language_value
 from .models import NotificationTask
@@ -46,8 +48,8 @@ def _send_inner_notification(task):
                 unread=task.unread,
                 actor_content_type_id=USER_CONTENT_TYPE_ID,
                 actor_object_id=settings.SCHOOL_USER_ID,
-                verb=get_language_value(task.verb, recipient.app_language.code),
-                description=get_language_value(task.description, recipient.app_language.code),
+                verb=strip_tags(get_language_value(task.verb, recipient.app_language.code) or "").strip(),
+                description=strip_tags(get_language_value(task.description, recipient.app_language.code) or "").strip(),
                 target_content_type=task.target_content_type,
                 target_object_id=task.target_object_id,
                 action_object_content_type=task.action_object_content_type,
@@ -102,8 +104,8 @@ def _send_push_notification_to_devices(message_data, fcm_devices):
             fcm_device.send_message(
                 Message(
                     notification=PushNotification(
-                        title=get_language_value(message_data.get('verb', {}), recipient_language_code),
-                        body=get_language_value(message_data.get('body', {}), recipient_language_code),
+                        title=strip_tags(get_language_value(message_data.get('verb', {}), recipient_language_code) or "").strip(),
+                        body=strip_tags(get_language_value(message_data.get('body', {}), recipient_language_code) or "").strip(),
                     )
                     # data=message_data # Message.data must not contain non-string values.
                 )

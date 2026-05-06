@@ -52,7 +52,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "django_minio_backend.apps.DjangoMinioBackendConfig",  # https://github.com/theriverman/django-minio-backend
-    "rosetta",
+    # "rosetta",  # Replaced by Tolgee i18n Studio
     "voting",
     "notifications",
     "astroprocessor",
@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "users",
     "payments.apps.PaymentsConfig",
     "bootcamp.apps.BootcampConfig",
+    "languages.apps.LanguagesConfig",
     "link.apps.LinkConfig",
     "horoscope.apps.HoroscopeConfig",
     "astrology_calendar.apps.AstrologyCalendarConfig",
@@ -73,6 +74,8 @@ INSTALLED_APPS = [
     "stop_words.apps.StopWordsConfig",
     "info.apps.InfoConfig",
     "notifications_ext.apps.NotificationsExtConfig",
+    "utils.apps.UtilsConfig",
+    "analytics.apps.AnalyticsConfig",
 
     # Libs
     "fcm_django",
@@ -144,6 +147,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "utils.context_processors.tolgee_languages",
             ]
         },
     }
@@ -294,7 +298,17 @@ DATABASES = {
         "USER": os.getenv("DB_USER"),
         "PASSWORD": os.getenv("DB_PASSWORD"),
     },
+    "analytics": {
+        "ENGINE": "django.db.backends.postgresql",
+        "HOST": os.getenv("ANALYTICS_DB_HOST", "analytics-db"),
+        "PORT": os.getenv("ANALYTICS_DB_PORT", "5432"),
+        "NAME": os.getenv("ANALYTICS_DB_NAME", "analytics"),
+        "USER": os.getenv("ANALYTICS_DB_USER", "analytics"),
+        "PASSWORD": os.getenv("ANALYTICS_DB_PASSWORD", "analytics123"),
+    },
 }
+
+DATABASE_ROUTERS = ["analytics.db_router.AnalyticsRouter"]
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY")
@@ -317,6 +331,16 @@ CELERY_BROKER_URL = os.getenv("REDIS_URL")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
+CELERY_BEAT_SCHEDULE = {
+    "sync-tolgee-to-s3": {
+        "task": "utils.tasks.sync_tolgee_to_s3",
+        "schedule": 300,  # every 5 minutes
+    },
+    "sync-analytics-db": {
+        "task": "analytics.sync_to_analytics_db",
+        "schedule": 3600,  # every hour
+    },
+}
 
 # Email code lifetime
 ACCESS_TOKEN_LIFETIME = timedelta(days=30)
@@ -396,8 +420,35 @@ FCM_DJANGO_SETTINGS = {
 
 DEFAULT_LANGUAGE_CODE = os.getenv("DEFAULT_LANGUAGE_CODE", "en")
 
+# Tolgee i18n Studio
+TOLGEE_API_URL = os.getenv("TOLGEE_API_URL", "http://tolgee:8085")
+TOLGEE_API_KEY = os.getenv("TOLGEE_API_KEY", "")
+TOLGEE_PROJECT_ID = int(os.getenv("TOLGEE_PROJECT_ID", "1"))  # main project (frontend, app-preview)
+TOLGEE_TRANSLATIONS_S3_PREFIX = "translations"
+
+# Per-entity Tolgee projects (each entity/namespace has its own project)
+TOLGEE_PROJECTS = {
+    "frontend": 19,
+    "app-preview": 20,
+    "tariffs": 3,
+    "documents": 4,
+    "app_info": 5,
+    "astroprocessor_types": 22,
+    "astroprocessor_data": 9,
+    "sign_planet": 10,
+    "planet_house": 11,
+    "master_house": 12,
+    "constellations": 13,
+    "stellar_types": 21,
+    "stars": 15,
+    "sky_info": 16,
+}
 
 FEATURE_FLAG = os.getenv("FEATURE_FLAG", default="0").lower() in ("true", "1")
+
+# Metabase embedding
+METABASE_SITE_URL = os.getenv("METABASE_SITE_URL", "http://localhost:3001")
+METABASE_SECRET_KEY = os.getenv("METABASE_SECRET_KEY", "")
 
 LOGGING = {
     "version": 1,
@@ -420,8 +471,13 @@ LOGGING = {
     "loggers": {
         "django": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": "INFO",
             "propagate": True,
+        },
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
         },
         "django.request": {
             "handlers": ["console"],

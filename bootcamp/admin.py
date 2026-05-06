@@ -1,95 +1,39 @@
-import nested_admin
 from django.contrib import admin
+from django.db import models
 
-from .models import (
-    AdditionalField,
-    Bonus,
-    Course,
-    Curriculum,
-    ForWhomCourse,
-    Lesson,
-    Module,
-    PaymentOption,
-    PaymentOptionType,
-    VideoPresentation,
-    WhatYouBuy,
-    WithinCourse,
-    AdvCourseCard,
-    Tag,
-    Feature
-)
+from utils.admin_multilang_json_widget import MultilangJSONTextInputWidget
+
+from .models import AdvCourseCard, AdvCourseCardLocale, Tag
 
 
-class BonusInline(nested_admin.NestedStackedInline):
-    model = Bonus
+class AdvCourseCardLocaleInline(admin.TabularInline):
+    model = AdvCourseCardLocale
+    extra = 0
+    fields = ("language_code", "image", "image_link")
+    verbose_name = "Картинка по языку"
+    verbose_name_plural = "Картинки по языкам"
 
 
-class PaymentOptionInline(nested_admin.NestedStackedInline):
-    model = PaymentOption
-    inlines = (BonusInline,)
-
-
-class WhatYouBuyInline(nested_admin.NestedStackedInline):
-    model = WhatYouBuy
-
-
-class WithinCourseInline(nested_admin.NestedStackedInline):
-    model = WithinCourse
-
-
-class AdditionalFieldInline(nested_admin.NestedStackedInline):
-    model = AdditionalField
-
-
-class VideoPresentationInline(nested_admin.NestedStackedInline):
-    model = VideoPresentation
-
-
-class ForWhomCourseInline(nested_admin.NestedStackedInline):
-    model = ForWhomCourse
-
-
-class LessonInline(nested_admin.NestedStackedInline):
-    list_display = ("title",)
-    model = Lesson
-
-
-class ModuleInline(nested_admin.NestedStackedInline):
-    list_display = ("title",)
-    model = Module
-    inlines = (LessonInline,)
-
-
-@admin.register(Course)
-class CourseAdmin(nested_admin.NestedModelAdmin):
-    list_display = ("title",)
-    inlines = (
-        ModuleInline,
-        LessonInline,
-        AdditionalFieldInline,
-        VideoPresentationInline,
-        ForWhomCourseInline,
-        WithinCourseInline,
-        WhatYouBuyInline,
-        PaymentOptionInline,
-    )
-
-
-@admin.register(Curriculum)
-class CurriculumAdmin(admin.ModelAdmin):
-    list_display = ("user", "course", "created")
-    list_filter = ("user", "course")
-
-
-@admin.register(PaymentOptionType)
-class PaymentOptionTypeAdmin(admin.ModelAdmin):
-    list_display = ("title", "alias")
-
-
-@admin.register(AdvCourseCard)
 class AdvCourseCardAdmin(admin.ModelAdmin):
-    list_display = ("title", "publish_start", "link")
+    list_display = ("get_title", "show_card")
+    list_filter = ("banner_type", "show_card")
+    filter_horizontal = ("banner_type",)
+    fields = ("title", "banner_type", "link", "image_link", "show_card")
+    inlines = (AdvCourseCardLocaleInline,)
+
+    def get_title(self, obj):
+        t = obj.title
+        if isinstance(t, dict):
+            return t.get("ru") or next(iter(t.values()), "")
+        return t or ""
+    get_title.short_description = "Название"
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
+        if isinstance(db_field, models.JSONField) and formfield is not None:
+            formfield.widget = MultilangJSONTextInputWidget()
+        return formfield
 
 
+admin.site.register(AdvCourseCard, AdvCourseCardAdmin)
 admin.site.register(Tag)
-admin.site.register(Feature)

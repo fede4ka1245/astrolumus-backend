@@ -1,16 +1,17 @@
 from ckeditor.fields import RichTextField
 from django.db import models
+from django.utils.html import strip_tags
 
 from utils.multilinguality import get_default_language_value_admin
 
 
 class Info(models.Model):
-    whatsapp = models.URLField("whatsapp", max_length=255, blank=True, null=True)
-    telegram_direct = models.URLField("telegram_direct", max_length=255, blank=True, null=True)
-    telegram = models.URLField("telegram", max_length=255, blank=True, null=True)
-    viber = models.CharField("viber", max_length=255, blank=True, null=True)
-    youtube_alpha = models.URLField("youtube_alpha", max_length=255, blank=True, null=True)
-    youtube_deep_sky = models.URLField("youtube_deep_sky", max_length=255, blank=True, null=True)
+    whatsapp = models.JSONField("whatsapp", blank=True, null=True, default=None)
+    telegram_direct = models.JSONField("telegram_direct", blank=True, null=True, default=None)
+    telegram = models.JSONField("telegram", blank=True, null=True, default=None)
+    viber = models.JSONField("viber", blank=True, null=True, default=None)
+    youtube_alpha = models.JSONField("youtube_alpha", blank=True, null=True, default=None)
+    youtube_deep_sky = models.JSONField("youtube_deep_sky", blank=True, null=True, default=None)
     email = models.EmailField("email", max_length=255, blank=True, null=True)
 
     class Meta:
@@ -32,7 +33,7 @@ class Documents(models.Model):
                                         help_text="Используется последняя опубликованная редакция")
 
     def __str__(self):
-        return get_default_language_value_admin(self.title)
+        return strip_tags(get_default_language_value_admin(self.title) or "").strip()
 
     class Meta:
         ordering = ["-published_at", "-updated_at"]
@@ -50,8 +51,8 @@ class MobileAppsVersion(models.Model):
         default=AppType.ANDROID
     )
     version = models.CharField(verbose_name="версия", max_length=155)
-    link = models.URLField("Ссылка", max_length=255)
-    description = RichTextField(blank=True, null=True)
+    link = models.JSONField("Ссылка", blank=True, null=True, default=None)
+    description = models.JSONField("Описание", blank=True, null=True, default=None)
 
     def __str__(self):
         return f"{self.app_type} {self.version}"
@@ -69,13 +70,13 @@ class AppPartInfo(models.Model):
     sub_title = models.JSONField(verbose_name="Подзаголовок")
     description = models.JSONField(verbose_name="Описание")
     main_description = models.JSONField(verbose_name="Главное описание")
-    link = models.URLField("Ссылка")
+    link = models.JSONField("Ссылка", blank=True, null=True, default=None)
     created_at = models.DateTimeField("Создан", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлен", auto_now=True, editable=True)
     is_active = models.BooleanField("Активный раздел", default=True)
 
     def __str__(self):
-        return get_default_language_value_admin(self.title)
+        return strip_tags(get_default_language_value_admin(self.title) or "").strip()
 
     class Meta:
         ordering = ["-updated_at"]

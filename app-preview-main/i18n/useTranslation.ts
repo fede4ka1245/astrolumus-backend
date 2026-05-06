@@ -1,19 +1,44 @@
-import { useMemo } from 'react';
-import * as en from './locales/en.json';
-import * as ru from './locales/ru.json';
-import * as uk from './locales/uk.json';
-import * as pl from './locales/pl.json';
-import * as be from './locales/be.json';
+import { useMemo, useEffect, useState } from 'react';
+import * as enFallback from './locales/en.json';
+import * as ruFallback from './locales/ru.json';
+import * as ukFallback from './locales/uk.json';
+import * as plFallback from './locales/pl.json';
+import * as beFallback from './locales/be.json';
 
 type Language = 'en' | 'ru' | 'uk' | 'pl' | 'be';
 
-const translations = {
-  en: en as any,
-  ru: ru as any,
-  uk: uk as any,
-  pl: pl as any,
-  be: be as any,
+const S3_TRANSLATIONS_BASE = process.env.NEXT_PUBLIC_TRANSLATIONS_URL
+  || 'https://media.alpha-astro.com/alpha/translations/app-preview';
+
+// Bundled fallback translations
+const fallbackTranslations: Record<string, any> = {
+  en: enFallback,
+  ru: ruFallback,
+  uk: ukFallback,
+  pl: plFallback,
+  be: beFallback,
 };
+
+// Cache for S3-loaded translations
+const s3Cache: Record<string, any> = {};
+
+async function fetchTranslations(lang: string): Promise<any> {
+  if (s3Cache[lang]) return s3Cache[lang];
+
+  try {
+    const res = await fetch(`${S3_TRANSLATIONS_BASE}/${lang}.json`);
+    if (res.ok) {
+      const data = await res.json();
+      s3Cache[lang] = data;
+      return data;
+    }
+  } catch {
+    // S3 unavailable, use fallback
+  }
+  return fallbackTranslations[lang] || fallbackTranslations.en;
+}
+
+const translations: Record<string, any> = { ...fallbackTranslations };
 
 /**
  * Hook for accessing translations
@@ -21,7 +46,16 @@ const translations = {
  * @returns Object with `t` function for accessing translations
  */
 export function useTranslation(language: Language) {
-  const currentTranslations = translations[language] || translations.en;
+  const [currentTranslations, setCurrentTranslations] = useState<any>(
+    translations[language] || translations.en
+  );
+
+  useEffect(() => {
+    fetchTranslations(language).then((data) => {
+      translations[language] = data;
+      setCurrentTranslations(data);
+    });
+  }, [language]);
 
   return useMemo(
     () => ({

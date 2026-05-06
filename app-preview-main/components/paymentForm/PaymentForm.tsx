@@ -38,6 +38,10 @@ interface Order {
   pay_system: string;
 }
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function PaymentForm({ initialEmail = '', language }: PaymentFormProps) {
   const { t } = useTranslation(language);
   
@@ -137,6 +141,13 @@ function PaymentForm({ initialEmail = '', language }: PaymentFormProps) {
 
   useEffect(() => {
     fetchTariffs();
+  }, [language]);
+
+  // For English language, force stripe as the only payment method
+  useEffect(() => {
+    if (language === 'en' && paymentMethod !== 'stripe') {
+      setPaymentMethod('stripe');
+    }
   }, [language]);
 
   // Convert RUB to BYN and USD to EUR if user had old currencies selected previously (from old localStorage)
@@ -1055,13 +1066,13 @@ function PaymentForm({ initialEmail = '', language }: PaymentFormProps) {
                             </div>
                             
                             <div style={{ flex: 1 }}>
-                              <Typography sx={{ fontFamily: 'Gilroy', fontSize: { xs: '14px', sm: '16px' }, color: '#1F2937', fontWeight: 600, mb: 0.5 }}>
-                                {tariff.title}
-                              </Typography>
+                              <Typography sx={{ fontFamily: 'Gilroy', fontSize: { xs: '14px', sm: '16px' }, color: '#1F2937', fontWeight: 600, mb: 0.5 }}
+                                dangerouslySetInnerHTML={{ __html: tariff.title }}
+                              />
                               {tariff.public_description && (
-                                <Typography sx={{ fontFamily: 'Gilroy', fontSize: { xs: '11px', sm: '13px' }, color: '#6B7280', mb: 0.5, lineHeight: 1.4 }}>
-                                  {tariff.public_description}
-                                </Typography>
+                                <Typography sx={{ fontFamily: 'Gilroy', fontSize: { xs: '11px', sm: '13px' }, color: '#6B7280', mb: 0.5, lineHeight: 1.4 }}
+                                  dangerouslySetInnerHTML={{ __html: tariff.public_description }}
+                                />
                               )}
                               <Typography sx={{ fontFamily: 'Gilroy', fontSize: { xs: '12px', sm: '14px' }, color: '#6B7280' }}>
                                 {formatPriceWithRUB(tariff.prices[currency], currency, tariff)} · {t('payment.validity', { days: tariff.validity_days })}
@@ -1089,7 +1100,7 @@ function PaymentForm({ initialEmail = '', language }: PaymentFormProps) {
                   <Grid display={'flex'} direction={'row'} gap={{ xs: 1, sm: 2 }}>
                     {[
                       { id: 'stripe', label: t('payment.stripe'), description: t('payment.stripeDescription') },
-                      { id: 'bepaid', label: t('payment.bepaid'), description: t('payment.bepaidDescription') },
+                      ...(language !== 'en' ? [{ id: 'bepaid', label: t('payment.bepaid'), description: t('payment.bepaidDescription') }] : []),
                     ].map((method) => (
                       <div
                         key={method.id}

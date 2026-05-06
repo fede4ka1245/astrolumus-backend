@@ -1,5 +1,6 @@
 from ckeditor_uploader.fields import RichTextUploadingField
 from django.db import models
+from django.utils.html import strip_tags
 from django_minio_backend import MinioBackend
 from utils.multilinguality import get_default_language_value_admin
 
@@ -9,7 +10,7 @@ class Constellation(models.Model):
     description = models.JSONField(verbose_name="Описание", null=True, blank=True)
 
     def __str__(self):
-        return get_default_language_value_admin(self.title)
+        return strip_tags(get_default_language_value_admin(self.title) or "").strip()
 
     class Meta:
         db_table = "constellations"
@@ -23,7 +24,7 @@ class StellarObjectType(models.Model):
     custom_id = models.PositiveIntegerField(default=0)
 
     def __str__(self):
-        return get_default_language_value_admin(self.name)
+        return strip_tags(get_default_language_value_admin(self.name) or "").strip()
 
     class Meta:
         db_table = "stellar_object_types"
@@ -59,7 +60,7 @@ class Star(models.Model):
     )
 
     def __str__(self):
-        return get_default_language_value_admin(self.title)
+        return strip_tags(get_default_language_value_admin(self.title) or "").strip()
 
     class Meta:
         db_table = "stars"
@@ -124,7 +125,7 @@ class Information(models.Model):
                                         help_text="Используется последняя опубликованная редакция")
 
     def __str__(self):
-        return get_default_language_value_admin(self.title)
+        return strip_tags(get_default_language_value_admin(self.title) or "").strip()
 
     class Meta:
         ordering = ["-published_at", "-updated_at"]

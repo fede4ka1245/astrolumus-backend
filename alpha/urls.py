@@ -48,7 +48,7 @@ urlpatterns = [
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("admin/", admin.site.urls),
-    path("rosetta/", include("rosetta.urls")),
+    # path("rosetta/", include("rosetta.urls")),  # Replaced by Tolgee i18n Studio
     # API paths. Please prepend with API versioning prefix
     path("jwt/", include("alpha.jwt_urls", namespace="jwt")),
     path("users/", include(("users.urls", "users"), namespace="users")),

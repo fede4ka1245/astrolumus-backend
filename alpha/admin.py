@@ -1,7 +1,7 @@
 from ckeditor.widgets import CKEditorWidget
 from django.contrib import admin
 from django.core.mail import EmailMultiAlternatives
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import path
 
@@ -25,6 +25,11 @@ class AlphaAdminSite(admin.AdminSite):
         "stop_words",
     }
 
+    # Merge these app_labels into a single admin section
+    _merge_apps = {
+        "tariffs": "payments",  # tariffs models appear under payments section
+    }
+
     def get_app_list(self, request, app_label=None):
         app_list = super().get_app_list(request, app_label=app_label)
         app_list = [
@@ -34,7 +39,37 @@ class AlphaAdminSite(admin.AdminSite):
             and app.get("app_label") not in {"voting"}
         ]
 
-        top = ["payments", "tariffs"]
+        # Merge apps: move models from source into target section
+        targets = {}
+        sources_to_remove = set()
+        for app in app_list:
+            label = app.get("app_label")
+            if label in self._merge_apps.values():
+                targets[label] = app
+        for app in app_list:
+            label = app.get("app_label")
+            target_label = self._merge_apps.get(label)
+            if target_label and target_label in targets:
+                targets[target_label]["models"].extend(app.get("models", []))
+                sources_to_remove.add(label)
+        app_list = [app for app in app_list if app.get("app_label") not in sources_to_remove]
+
+        # Reorder models within analytics: P&L models first, then users/payments
+        analytics_model_order = [
+            "Expense", "ExpenseCategory", "CurrencyRate",
+            "AnalyticsPayment", "AnalyticsUser",
+        ]
+        for app in app_list:
+            if app.get("app_label") == "analytics":
+                app["models"].sort(
+                    key=lambda m: (
+                        analytics_model_order.index(m["object_name"])
+                        if m["object_name"] in analytics_model_order
+                        else len(analytics_model_order)
+                    )
+                )
+
+        top = ["analytics", "payments"]
         bottom = ["fcm_django", "django_celery_beat"]
 
         def sort_key(app):
@@ -46,15 +81,57 @@ class AlphaAdminSite(admin.AdminSite):
             return (1, app.get("name", ""))
 
         app_list.sort(key=sort_key)
+
+        # Inject P&L Dashboard link and hide MetabaseDashboard from sidebar
+        for app in app_list:
+            if app.get("app_label") == "analytics":
+                app["models"] = [
+                    m for m in app["models"]
+                    if m.get("object_name") != "MetabaseDashboard"
+                ]
+                app["models"].insert(0, {
+                    "name": "P&L Dashboard",
+                    "object_name": "_pnl_dashboard",
+                    "admin_url": "/admin/analytics/",
+                    "view_only": True,
+                })
+                break
+
         return app_list
 
     def get_urls(self):
+        from django.urls import include
+
         urls = super().get_urls()
         my_urls = [
             path('send-email-users/', self.admin_view(self.send_emails), name="send_email_users"),
+            path('set-language/', self.admin_view(self.set_language), name="set_language"),
+            path('analytics/', include("analytics.urls")),
         ]
 
         return my_urls + urls
+
+    def set_language(self, request):
+        if request.method != "POST":
+            return HttpResponseBadRequest("POST only")
+
+        language = request.POST.get("language", "").strip()
+        if not language:
+            return HttpResponseBadRequest("Missing language")
+
+        from django.utils import translation
+
+        # Сохраняем язык пользователя в БД
+        if request.user.is_authenticated:
+            request.user.language = language
+            request.user.save(update_fields=["language"])
+
+        # Активируем locale для текущего запроса
+        translation.activate(language)
+        request.session[translation.LANGUAGE_SESSION_KEY] = language
+
+        next_url = request.POST.get("next", "/admin/")
+        return HttpResponseRedirect(next_url)
 
     def send_emails(self, request):
         context = dict(

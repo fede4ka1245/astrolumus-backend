@@ -53,7 +53,7 @@ def activate_user_tariff(user_id: int, tariff_code: str, order_id: str = None):
         return {
             'status': 'success',
             'activation_id': activation.id,
-            'tariff': tariff.title,
+            'tariff': str(tariff),
             'tariff_code': tariff_code,
             'user_email': user.email,
             'user_id': user_id,

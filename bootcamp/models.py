@@ -6,7 +6,7 @@ from django_minio_backend import MinioBackend
 from ordered_model.models import OrderedModel
 from sorl.thumbnail import ImageField
 
-from advertising.models import BannerType
+from advertising.models import BannerType, BannerImage
 
 User = get_user_model()
 
@@ -352,8 +352,8 @@ class Tag(models.Model):
         return self.title
 
     class Meta:
-        verbose_name = "Тег для курсов"
-        verbose_name_plural = "Теги для курсов"
+        verbose_name = "Тег для баннеров"
+        verbose_name_plural = "Теги для баннеров"
 
 
 class Feature(models.Model):
@@ -369,23 +369,34 @@ class Feature(models.Model):
 
 
 class AdvCourseCard(models.Model):
-    title = models.CharField(verbose_name="Название курса", max_length=255)
-    price = models.CharField(verbose_name="Цена", max_length=255, null=True, blank=True)
-    previous_price = models.CharField(verbose_name="Предыдущая цена", max_length=255, null=True, blank=True)
-    description = models.CharField(verbose_name="Описание", max_length=255, null=True, blank=True)
+    title = models.JSONField(verbose_name="Название", default=dict)
+    link = models.JSONField(
+        verbose_name="Ссылка", null=True, blank=True, default=None
+    )
+    image = models.ImageField("Картинка (по умолчанию)", storage=MinioBackend(bucket_name='alpha'), upload_to=upload_to, blank=True)
+    image_link = models.JSONField(
+        verbose_name="Ссылка на картинку", null=True, blank=True, default=None
+    )
+    banner_type = models.ManyToManyField(
+        BannerType,
+        related_name="adv_course_cards",
+        blank=True,
+        verbose_name="Тип"
+    )
+    # Legacy fields kept for data integrity — not shown in admin
+    price = models.JSONField(verbose_name="Цена", null=True, blank=True, default=None)
+    previous_price = models.JSONField(verbose_name="Предыдущая цена", null=True, blank=True, default=None)
+    description = models.JSONField(verbose_name="Описание", null=True, blank=True, default=None)
     publish_start = models.DateField(verbose_name="Дата начала", null=True, blank=True)
     show_card = models.BooleanField(default=True)
     course = models.ForeignKey(
         Course, related_name="course_advs", on_delete=models.CASCADE, null=True, blank=True
     )
-    link = models.URLField(
-        verbose_name="Ссылка курс на сайте", null=True, blank=True
-    )
-    image = models.ImageField("Фото", storage=MinioBackend(bucket_name='alpha'), upload_to=upload_to)
-    banner_type = models.ManyToManyField(
-        BannerType,
+    localized_images = models.ManyToManyField(
+        BannerImage,
         related_name="adv_course_cards",
-        blank=True
+        blank=True,
+        verbose_name="Баннеры на разных языках"
     )
     features = models.ManyToManyField(
         Feature,
@@ -400,12 +411,52 @@ class AdvCourseCard(models.Model):
     target_languages = models.ManyToManyField(
         settings.APP_LANGUAGE_MODEL,
         related_name="adv_course_cards",
-        blank=False
+        blank=True
     )
 
     def __str__(self):
-        return self.title
+        from django.utils.html import strip_tags
+        t = self.title
+        if isinstance(t, dict):
+            raw = t.get("ru") or next(iter(t.values()), "")
+        else:
+            raw = t or ""
+        return strip_tags(raw).strip()
 
     class Meta:
-        verbose_name = "Карточка рекламы курса"
-        verbose_name_plural = "Карточки рекламы курсов"
+        verbose_name = "Баннер"
+        verbose_name_plural = "Баннеры"
+
+
+class AdvCourseCardLocale(models.Model):
+    card = models.ForeignKey(
+        AdvCourseCard,
+        on_delete=models.CASCADE,
+        related_name="locales",
+        verbose_name="Баннер",
+    )
+    language_code = models.CharField(verbose_name="Код языка", max_length=15)
+    image = models.ImageField(
+        "Фото",
+        storage=MinioBackend(bucket_name='alpha'),
+        upload_to=upload_to,
+        null=True,
+        blank=True,
+    )
+    image_link = models.URLField(verbose_name="Ссылка на изображение", blank=True)
+
+    def __str__(self):
+        return self.language_code
+
+    class Meta:
+        unique_together = ("card", "language_code")
+        verbose_name = "Картинка по языку"
+        verbose_name_plural = "Картинки по языкам"
+
+
+class AdvCourseCardProxy(AdvCourseCard):
+    class Meta:
+        proxy = True
+        app_label = "advertising"
+        verbose_name = "Баннер"
+        verbose_name_plural = "Баннеры"

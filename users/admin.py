@@ -78,6 +78,7 @@ class UserAdmin(BaseUserAdmin, ExportCsvMixin):
             },
         ),
         (_("Important dates"), {"fields": ("last_login", "last_seen", "date_joined")}),
+        (_("Согласия"), {"fields": ("consent_personal_data", "consent_marketing", "consent_marketing_date")}),
     )
     add_fieldsets = (
         (
@@ -90,7 +91,8 @@ class UserAdmin(BaseUserAdmin, ExportCsvMixin):
     )
     list_filter = (("date_joined", DateTimeRangeFilter), ('complaint', admin.EmptyFieldListFilter),
                    ("last_login", DateTimeRangeFilter), ("last_seen", DateTimeRangeFilter),
-                   ("profile__about", admin.EmptyFieldListFilter), "is_staff", "is_superuser")
+                   ("profile__about", admin.EmptyFieldListFilter), "is_staff", "is_superuser",
+                   "consent_marketing", "consent_personal_data")
     form = UserChangeForm
     add_form = UserCreationForm
     list_display = (
@@ -174,6 +176,40 @@ class SubscriptionAdmin(admin.ModelAdmin):
 #     list_display = ("user_dst", "user_src")
 
 
-@admin.register(AppLanguage)
-class AppLanguageAdmin(admin.ModelAdmin):
-    list_display = ("name", "code")
+class MarketingConsentUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = "Подписчик рассылки"
+        verbose_name_plural = "Подписчики рассылки"
+
+
+@admin.register(MarketingConsentUser)
+class MarketingConsentUserAdmin(admin.ModelAdmin, ExportCsvMixin):
+    list_display = (
+        "email",
+        "first_name",
+        "last_name",
+        "consent_marketing",
+        "consent_marketing_date",
+        "consent_personal_data",
+        "date_joined",
+    )
+    list_filter = ("consent_marketing", "consent_personal_data",
+                   ("consent_marketing_date", DateTimeRangeFilter),
+                   ("date_joined", DateTimeRangeFilter))
+    search_fields = ("email", "first_name", "last_name")
+    actions = ["export_as_csv"]
+    ordering = ("-consent_marketing_date",)
+    readonly_fields = ("email", "first_name", "last_name", "consent_marketing",
+                       "consent_marketing_date", "consent_personal_data", "date_joined")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(consent_marketing=True)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+

@@ -6,6 +6,7 @@ from drf_yasg import openapi
 
 from .models import Course, AdvCourseCard
 from .serializers import CourseSerializer, AdvCourseCardSerializer
+from utils.multilinguality import MultilingualityViewMixin
 
 
 class CourseViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -16,7 +17,7 @@ class CourseViewset(mixins.ListModelMixin, viewsets.GenericViewSet):
     filterset_fields = ("course_type",)
 
 
-class CourseAdvViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+class CourseAdvViewSet(MultilingualityViewMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     permission_classes = ()
     queryset = AdvCourseCard.objects.filter(show_card=True)
     serializer_class = AdvCourseCardSerializer

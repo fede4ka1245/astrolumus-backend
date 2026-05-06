@@ -1,0 +1,177 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Metabase дашборды{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+  .mb-split {
+    display: flex;
+    gap: 0;
+    min-height: 85vh;
+  }
+
+  /* ---- sidebar with dashboard list ---- */
+  .mb-sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: #f8f9fa;
+    border-right: 1px solid #ddd;
+    overflow-y: auto;
+  }
+  .mb-sidebar h3 {
+    margin: 0;
+    padding: 14px 16px 10px;
+    font-size: 14px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .mb-sidebar ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .mb-sidebar li a {
+    display: block;
+    padding: 12px 16px;
+    color: #333;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    font-size: 14px;
+    transition: all .15s;
+  }
+  .mb-sidebar li a:hover {
+    background: #e9ecef;
+  }
+  .mb-sidebar li a.active {
+    background: #fff;
+    border-left-color: #417690;
+    font-weight: bold;
+    color: #417690;
+  }
+  .mb-sidebar li a .desc {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    font-weight: normal;
+    margin-top: 2px;
+  }
+
+  /* ---- iframe area ---- */
+  .mb-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+  }
+  .mb-content .placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 16px;
+  }
+  .mb-content iframe {
+    flex: 1;
+    width: 100%;
+    border: none;
+  }
+  .mb-content .loading {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 15px;
+  }
+
+  /* ---- admin link ---- */
+  .mb-admin-link {
+    padding: 12px 16px;
+    border-top: 1px solid #ddd;
+  }
+  .mb-admin-link a {
+    color: #417690;
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .mb-admin-link a:hover { text-decoration: underline; }
+
+  /* hide default changelist content */
+  #content > .module,
+  #content > .results,
+  #content > .paginator,
+  #content > p.paginator,
+  #content > #changelist,
+  #content-main > .module,
+  #content-main > #changelist {
+    display: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-split">
+  <div class="mb-sidebar">
+    <h3>Дашборды</h3>
+    <ul id="mb-dashboard-list">
+      {% for d in dashboards %}
+      <li>
+        <a href="#" data-id="{{ d.metabase_id }}" onclick="loadDashboard({{ d.metabase_id }}, this); return false;">
+          {{ d.name }}
+          {% if d.description %}<span class="desc">{{ d.description }}</span>{% endif %}
+        </a>
+      </li>
+      {% empty %}
+      <li style="padding: 16px; color: #999;">Нет активных дашбордов</li>
+      {% endfor %}
+    </ul>
+    <div class="mb-admin-link">
+      <a href="/admin/analytics/metabasedashboard/add/">+ Добавить дашборд</a>
+    </div>
+  </div>
+
+  <div class="mb-content" id="mb-content">
+    <div class="placeholder" id="mb-placeholder">
+      Выберите дашборд слева
+    </div>
+  </div>
+</div>
+
+<script>
+function loadDashboard(dashboardId, linkEl) {
+  // Mark active
+  document.querySelectorAll('#mb-dashboard-list a').forEach(function(a) {
+    a.classList.remove('active');
+  });
+  linkEl.classList.add('active');
+
+  var content = document.getElementById('mb-content');
+  content.innerHTML = '<div class="loading">Загрузка...</div>';
+
+  fetch('/admin/analytics/metabasedashboard/embed/' + dashboardId + '/')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) {
+        content.innerHTML = '<div class="placeholder">Дашборд не найден</div>';
+        return;
+      }
+      content.innerHTML = '<iframe src="' + data.url + '" allowtransparency></iframe>';
+    })
+    .catch(function() {
+      content.innerHTML = '<div class="placeholder">Ошибка загрузки</div>';
+    });
+}
+
+// Auto-load first dashboard
+(function() {
+  var first = document.querySelector('#mb-dashboard-list a[data-id]');
+  if (first) {
+    loadDashboard(parseInt(first.dataset.id), first);
+  }
+})();
+</script>
+{% endblock %}

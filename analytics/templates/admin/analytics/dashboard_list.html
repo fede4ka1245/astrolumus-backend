@@ -1,0 +1,20 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Дашборды — {{ block.super }}{% endblock %}
+
+{% block content %}
+<h2>Аналитические дашборды</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 16px;">
+  {% for d in dashboards %}
+  <a href="{% url 'analytics:dashboard_embed' d.metabase_id %}"
+     style="display: block; padding: 20px; border: 1px solid #ddd; border-radius: 8px; text-decoration: none; color: inherit; background: #fff; transition: box-shadow .15s;">
+    <h3 style="margin: 0 0 8px;">{{ d.name }}</h3>
+    {% if d.description %}
+    <p style="margin: 0; color: #666; font-size: 14px;">{{ d.description }}</p>
+    {% endif %}
+  </a>
+  {% empty %}
+  <p>Нет активных дашбордов. Добавьте дашборды через <a href="/admin/analytics/metabasedashboard/add/">админку</a>.</p>
+  {% endfor %}
+</div>
+{% endblock %}

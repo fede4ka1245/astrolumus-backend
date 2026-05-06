@@ -11,7 +11,12 @@ class SitePaymentsSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class TariffSerializer(serializers.ModelSerializer):
+class TariffSerializer(
+    LocalizedFieldsSerializerMixin,
+    serializers.ModelSerializer
+):
+    tolgee_namespace = "tariffs"
+    localized_fields = ("title", "description")
     current_user_activated = serializers.SerializerMethodField()
     current_user_activates = serializers.SerializerMethodField()
 
@@ -44,6 +49,7 @@ class PublicTariffSerializer(
     LocalizedFieldsSerializerMixin,
     serializers.ModelSerializer
 ):
+    tolgee_namespace = "tariffs"
     localized_fields = ("title", "public_description")
     prices = serializers.SerializerMethodField()
     price_rub = serializers.SerializerMethodField()

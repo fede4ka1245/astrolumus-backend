@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -7,6 +8,8 @@ from django.db.models import Q, OuterRef, Subquery, Func, F
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import now
+
+SKIP_EMAIL_AUTH = os.environ.get("SKIP_EMAIL_AUTH", "").lower() in ("true", "1", "yes")
 
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -196,20 +199,21 @@ class GenerateLoginCodeAPIView(views.APIView):
                 user=user
             )
 
-        try:
-            # send email TODO use user lang/templates
-            # todo get email from settings
-            send_mail(
-                'Код доступа AlphaSpace',
-                f'Ваш код авторизации: {password.password}',
-                'alphaspace@alpha-astro.com',
-                [user.email],
-                fail_silently=False,
-            )
-        except Exception as e:
-            return Response(
-                status=405, data={"message": "Произошла ошибка, попробуйте позже."}
-            )
+        if not SKIP_EMAIL_AUTH:
+            try:
+                # send email TODO use user lang/templates
+                # todo get email from settings
+                send_mail(
+                    'Код доступа AlphaSpace',
+                    f'Ваш код авторизации: {password.password}',
+                    'alphaspace@alpha-astro.com',
+                    [user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                return Response(
+                    status=405, data={"message": "Произошла ошибка, попробуйте позже."}
+                )
 
         # send
         data = {"message": "Код выслан на email"}
@@ -240,6 +244,13 @@ class ValidateLoginCodeAPIView(views.APIView):
             return Response(
                 status=405, data={"message": "Необходимо сгенерировать новый пароль."}
             )
+
+        if SKIP_EMAIL_AUTH:
+            password.delete()
+            data = user.generate_tokens()
+            user.last_login = now()
+            user.save()
+            return Response(data, status=status.HTTP_200_OK)
 
         if submitted_password != password.first().password:
             return Response(status=405, data={"message": "Неверный пароль."})
@@ -486,6 +497,6 @@ class UserRightsAPIView(views.APIView):
 
 
 class AppLanguagesView(mixins.ListModelMixin, viewsets.GenericViewSet):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
     serializer_class = AppLanguageSerializer
-    queryset = AppLanguage.objects.all()
+    queryset = AppLanguage.objects.filter(enabled=True)

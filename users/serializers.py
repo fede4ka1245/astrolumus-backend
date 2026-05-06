@@ -23,8 +23,13 @@ class RegistrationSerializer(serializers.ModelSerializer):
         required=False,
         default=get_default_app_language
     )
+    consent_personal_data = serializers.BooleanField(required=False, default=False)
+    consent_marketing = serializers.BooleanField(required=False, default=False)
 
     def create(self, validated_data):
+        from django.utils.timezone import now
+        if validated_data.get('consent_marketing'):
+            validated_data['consent_marketing_date'] = now()
         return get_user_model().objects.create_user(
             **validated_data,
             settings=Settings.objects.create()
@@ -46,6 +51,8 @@ class RegistrationSerializer(serializers.ModelSerializer):
             "patronymic",
             "language",
             "app_language",
+            "consent_personal_data",
+            "consent_marketing",
         )
 
 

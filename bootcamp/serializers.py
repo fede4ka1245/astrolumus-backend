@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from advertising.serializers import BannerTypeSerializer
+from utils.multilinguality import get_language_value
 from .models import (
     AdditionalField,
     Bonus,
@@ -14,6 +15,7 @@ from .models import (
     WhatYouBuy,
     WithinCourse,
     AdvCourseCard,
+    AdvCourseCardLocale,
     Tag,
     Feature
 )
@@ -35,17 +37,54 @@ class FeatureSerializer(serializers.ModelSerializer):
 
 class AdvCourseCardSerializer(serializers.ModelSerializer):
     banner_type = BannerTypeSerializer(many=True)
-    tags = TagSerializer(many=True)
-    features = FeatureSerializer(many=True)
-    target_languages = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    link = serializers.SerializerMethodField()
 
-    @staticmethod
-    def get_target_languages(obj):
-        return [language.code for language in obj.target_languages.all()]
+    def _get_lang(self):
+        lang = self.context.get('language_code')
+        if lang:
+            return lang
+        request = self.context.get('request')
+        if request:
+            lang = request.GET.get('language_code') or request.GET.get('lang')
+            if not lang:
+                accept_lang = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
+                if accept_lang:
+                    lang = accept_lang.split(',')[0].split(';')[0].strip().split('-')[0].lower()
+        return lang or 'ru'
+
+    def get_title(self, obj):
+        return get_language_value(obj.title, self._get_lang())
+
+    def get_link(self, obj):
+        return get_language_value(obj.link, self._get_lang())
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        lang = self._get_lang()
+        # 1. Per-language uploaded image from AdvCourseCardLocale
+        locale = obj.locales.filter(language_code=lang).first()
+        if locale is None and lang != 'ru':
+            locale = obj.locales.filter(language_code='ru').first()
+        if locale:
+            if locale.image and request:
+                return request.build_absolute_uri(locale.image.url)
+            if locale.image_link and locale.image_link.strip():
+                return locale.image_link
+        # 2. Per-language URL from image_link JSONField
+        if isinstance(obj.image_link, dict):
+            url = (obj.image_link.get(lang) or obj.image_link.get('ru') or '').strip()
+            if url:
+                return url
+        # 3. Fallback: default uploaded image
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
     class Meta:
         model = AdvCourseCard
-        fields = "__all__"
+        fields = ("id", "title", "link", "image", "banner_type")
 
 
 class BonusSerializer(serializers.ModelSerializer):

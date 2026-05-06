@@ -109,6 +109,7 @@ class Settings(models.Model):
 class AppLanguage(models.Model):
     name = models.CharField(_("name"), max_length=255)
     code = models.CharField(_("language code"), max_length=32, unique=True)
+    enabled = models.BooleanField(_("enabled"), default=True)
 
     def __str__(self):
         return self.name
@@ -146,6 +147,20 @@ class User(AbstractUser):
         null=True,
     )
     complaint = GenericRelation("complaints.Complaint", related_query_name='users')
+
+    consent_personal_data = models.BooleanField(
+        "Согласие на обработку персональных данных",
+        default=False,
+    )
+    consent_marketing = models.BooleanField(
+        "Согласие на маркетинговую рассылку",
+        default=False,
+    )
+    consent_marketing_date = models.DateTimeField(
+        "Дата согласия на рассылку",
+        blank=True,
+        null=True,
+    )
 
     # same as tariffs model
     restriction_forum = models.BooleanField("Форум отключен", default=False,

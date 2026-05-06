@@ -73,11 +73,26 @@ class StellarObjectTypeViewSet(
     serializer_class = StellarObjectTypeSerializer
 
 
+def _resolve_language_code(request):
+    lang = request.GET.get("language_code")
+    if lang:
+        return lang
+    accept_lang = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
+    if accept_lang:
+        primary = accept_lang.split(',')[0].split(';')[0].strip().split('-')[0].lower()
+        if primary:
+            return primary
+    user = request.user
+    if user and user.is_authenticated and getattr(user, 'language', None):
+        return user.language.split('-')[0].lower()
+    return 'en'
+
+
 @api_view(['GET'])
 def get_info(request):
     info = Information.objects.filter(published_at__isnull=False).last()
     if info:
-        language_code = request.GET.get("language_code", get_default_language_code())
+        language_code = _resolve_language_code(request)
         return Response(
             {
                 "title": get_language_value(info.title, language_code),
