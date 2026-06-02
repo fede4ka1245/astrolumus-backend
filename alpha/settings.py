@@ -332,7 +332,7 @@ SIMPLE_JWT = {
 ADMINS = [tuple(group.split()) for group in os.getenv("ADMINS").split("\n")]
 SCHOOL_USER_ID = int(os.getenv("SCHOOL_USER_ID"))
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.timeweb.ru")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "2525"))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in ("true", "1")
@@ -341,7 +341,9 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
 SERVER_EMAIL = "alphaspace@alpha-astro.com"
-DEFAULT_FROM_EMAIL = SERVER_EMAIL
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", SERVER_EMAIL)
+RESEND_API_TOKEN = os.getenv("RESEND_API_TOKEN")
+RESEND_API_URL = os.getenv("RESEND_API_URL")
 
 SMS_API_KEY = os.getenv("SMS_API_KEY")
 SMS_ALPHA_NAME = os.getenv("SMS_ALPHA_NAME")
