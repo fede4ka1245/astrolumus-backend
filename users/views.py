@@ -5,6 +5,7 @@ from django.core.mail import send_mail
 from django.db import transaction, IntegrityError
 from django.db.models import Q, OuterRef, Subquery, Func, F
 from django.http import JsonResponse
+from django.conf import settings
 from django.utils import timezone
 from django.utils.timezone import now
 
@@ -74,7 +75,7 @@ class RegistrationAPIViewSet(GenericViewSet, mixins.CreateModelMixin, ):
             send_mail(
                 'Код доступа AlphaSpace',
                 f'Ваш код авторизации: {password.password}',
-                'alphaspace@alpha-astro.com',
+                settings.DEFAULT_FROM_EMAIL,
                 [user.email],
                 fail_silently=False,
             )
@@ -202,7 +203,7 @@ class GenerateLoginCodeAPIView(views.APIView):
             send_mail(
                 'Код доступа AlphaSpace',
                 f'Ваш код авторизации: {password.password}',
-                'alphaspace@alpha-astro.com',
+                settings.DEFAULT_FROM_EMAIL,
                 [user.email],
                 fail_silently=False,
             )
