@@ -153,6 +153,17 @@ class Tariff(models.Model):
     price_eur = models.DecimalField("Цена (EUR)", max_digits=10, decimal_places=2, default=0,
                                    help_text="Цена в евро")
 
+    # ----- Astrolumus AI assistant quota -----
+    assistant_enabled = models.BooleanField(
+        "Доступ к ассистенту", default=False,
+        help_text="Если выключено — пользователь, у которого активен только этот тариф, не может писать ассистенту")
+    assistant_requests_per_month = models.PositiveIntegerField(
+        "Запросов к ассистенту в месяц", default=0,
+        help_text="0 — без месячного лимита")
+    assistant_requests_per_day = models.PositiveIntegerField(
+        "Запросов к ассистенту в день", default=0,
+        help_text="0 — без дневного лимита")
+
     objects = TariffManager()
 
     def __str__(self):

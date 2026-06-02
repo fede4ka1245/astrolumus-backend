@@ -78,6 +78,10 @@ urlpatterns = [
     path("info/", include(("info.urls", "info"), namespace="info")),
     path("tariffs/", include(("tariffs.urls", "tariffs"), namespace="tariffs")),
     path(
+        "assistant/",
+        include(("assistant_quota.urls", "assistant_quota"), namespace="assistant_quota"),
+    ),
+    path(
         "astroprocessor/",
         include(("astroprocessor.urls", "astroprocessor"), namespace="astroprocessor"),
     ),
