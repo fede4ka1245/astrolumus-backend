@@ -170,12 +170,12 @@ class GenerateLoginCodeAPIView(views.APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            user = User.objects.get(email=str(serializer.data["email"]).lower())
-        except User.DoesNotExist:
-            return Response(
-                status=404, data={"message": "Пользователь не найден."}
-            )
+        # Auto-register: create the account the moment a user enters their email.
+        email = str(serializer.data["email"]).lower()
+        user, _created = User.objects.get_or_create(
+            email=email,
+            defaults={"app_language": AppLanguage.objects.order_by("id").first()},
+        )
 
         expiry_date = timezone.now() - timedelta(minutes=CODE_VALID_MINUTES)
 
@@ -214,8 +214,11 @@ class GenerateLoginCodeAPIView(views.APIView):
         # send
         data = {"message": "Код выслан на email"}
 
-        # set tariff by default
-        Tariff.objects.get_user_tariff(user=user)
+        # set tariff by default (best-effort — don't fail registration if no tariff is configured yet)
+        try:
+            Tariff.objects.get_user_tariff(user=user)
+        except Exception:
+            pass
 
         return Response(data, status=status.HTTP_200_OK)
 
