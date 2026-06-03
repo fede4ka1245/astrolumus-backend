@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -8,6 +9,14 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.utils import timezone
 from django.utils.timezone import now
+
+# Hardcoded test account: a single known email that logs in with a fixed code
+# (works on staging/prod too). Both values are env-overridable. The blast radius
+# is limited to this one email only.
+# NOTE: the frontend submits the code as Number(value), so keep the code a
+# 5-digit integer with no leading zeros (matches generate_new_password format).
+TEST_LOGIN_EMAIL = os.environ.get("TEST_LOGIN_EMAIL", "test@astrolumus.local").lower()
+TEST_LOGIN_CODE = os.environ.get("TEST_LOGIN_CODE", "42424")
 
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -178,6 +187,16 @@ class GenerateLoginCodeAPIView(views.APIView):
             defaults={"app_language": AppLanguage.objects.order_by("id").first()},
         )
 
+        if email == TEST_LOGIN_EMAIL:
+            # Hardcoded test account — no code generation, no email sent.
+            # The fixed TEST_LOGIN_CODE is accepted on validate.
+            Tariff.objects.get_user_tariff(user=user)
+            print(
+                f"[auth-test] hardcoded login code for {email}: {TEST_LOGIN_CODE}",
+                flush=True,
+            )
+            return Response({"message": "Код выслан на email"}, status=status.HTTP_200_OK)
+
         expiry_date = timezone.now() - timedelta(minutes=CODE_VALID_MINUTES)
 
         password = GeneratedPassword.objects.filter(
@@ -232,8 +251,21 @@ class ValidateLoginCodeAPIView(views.APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         submitted_password = serializer.data["password"]
+        submitted_email = serializer.data["email"].lower()
 
-        user = User.objects.filter(email=serializer.data["email"].lower()).first()
+        if submitted_email == TEST_LOGIN_EMAIL and str(submitted_password) == TEST_LOGIN_CODE:
+            # Hardcoded test account — log in with the fixed code.
+            user, _created = User.objects.get_or_create(
+                email=TEST_LOGIN_EMAIL,
+                defaults={"app_language": AppLanguage.objects.order_by("id").first()},
+            )
+            Tariff.objects.get_user_tariff(user=user)
+            data = user.generate_tokens()
+            user.last_login = now()
+            user.save()
+            return Response(data, status=status.HTTP_200_OK)
+
+        user = User.objects.filter(email=submitted_email).first()
         expiry_date = timezone.now() - timedelta(minutes=CODE_VALID_MINUTES)
 
         password = GeneratedPassword.objects.filter(
