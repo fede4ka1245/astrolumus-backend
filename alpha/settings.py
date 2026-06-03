@@ -68,6 +68,8 @@ INSTALLED_APPS = [
     "favorite.apps.FavoriteConfig",
     "deep_sky.apps.DeepSkyConfig",
     "tariffs.apps.TariffsConfig",
+    "assistant_quota.apps.AssistantQuotaConfig",
+    "tarot.apps.TarotConfig",
     "advertising.apps.AdvertisingConfig",
     "chat.apps.ChatConfig",
     "complaints.apps.ComplaintsConfig",
@@ -76,6 +78,7 @@ INSTALLED_APPS = [
     "notifications_ext.apps.NotificationsExtConfig",
     "utils.apps.UtilsConfig",
     "analytics.apps.AnalyticsConfig",
+    "consultations.apps.ConsultationsConfig",
 
     # Libs
     "fcm_django",
@@ -356,7 +359,10 @@ SIMPLE_JWT = {
 ADMINS = [tuple(group.split()) for group in os.getenv("ADMINS").split("\n")]
 SCHOOL_USER_ID = int(os.getenv("SCHOOL_USER_ID"))
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+)
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.timeweb.ru")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "2525"))
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False").lower() in ("true", "1")
@@ -364,8 +370,17 @@ EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in ("true", "1")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
-SERVER_EMAIL = "alphaspace@alpha-astro.com"
-DEFAULT_FROM_EMAIL = SERVER_EMAIL
+# Mailtrap HTTP API (used when EMAIL_BACKEND points at MailtrapBackend)
+MAILTRAP_API_TOKEN = os.getenv("MAILTRAP_API_TOKEN")
+MAILTRAP_API_URL = os.getenv("MAILTRAP_API_URL")  # default: send.api.mailtrap.io/api/send
+MAILTRAP_FROM_NAME = os.getenv("MAILTRAP_FROM_NAME", "Astrolumus")
+
+# Resend HTTP API (used when EMAIL_BACKEND points at ResendBackend)
+RESEND_API_TOKEN = os.getenv("RESEND_API_TOKEN")
+RESEND_API_URL = os.getenv("RESEND_API_URL")  # default: api.resend.com/emails
+
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", "alphaspace@alpha-astro.com")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", SERVER_EMAIL)
 
 SMS_API_KEY = os.getenv("SMS_API_KEY")
 SMS_ALPHA_NAME = os.getenv("SMS_ALPHA_NAME")

@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
 from rest_framework.decorators import action
@@ -52,13 +53,44 @@ class MyHoroscopeViewSet(mixins.CreateModelMixin,
                          GenericViewSet):
     permission_classes = (IsAuthenticated, IsAuthorOrIsAdminOrCreateReadOnly)
     pagination_class = HoroscopePagination
-    queryset = MyHoroscope.objects.all()
+    queryset = MyHoroscope.objects.all().order_by("-created_at")
     filter_backends = (DjangoFilterBackend,)
     filterset_class = MyHoroscopeFilter
     serializer_class = MyHoroscopeSerializer
 
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Auto-save is idempotent: building the same chart again must not 400 on
+        # the unique_together [horoscope, user] constraint. Return the existing
+        # entry with 200 instead of failing.
+        horoscope = serializer.validated_data.get("horoscope")
+        existing = MyHoroscope.objects.filter(
+            horoscope=horoscope, user=request.user
+        ).first()
+        if existing is not None:
+            return Response(
+                self.get_serializer(existing).data, status=status.HTTP_200_OK
+            )
+
+        try:
+            self.perform_create(serializer)
+        except IntegrityError:
+            # Concurrent auto-save raced us to the unique_together row; return it.
+            existing = MyHoroscope.objects.filter(
+                horoscope=horoscope, user=request.user
+            ).first()
+            return Response(
+                self.get_serializer(existing).data, status=status.HTTP_200_OK
+            )
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -80,6 +112,14 @@ class SettingsView(GenericAPIView):
 
         language = serialized_data.validated_data.get("language")
         arudha = serialized_data.validated_data.get("arudha")
+
+        # Users may not have a Settings row yet (settings is a nullable
+        # OneToOneField); create one on first save instead of 500-ing.
+        if request.user.settings is None:
+            from users.models import Settings
+
+            request.user.settings = Settings.objects.create()
+            request.user.save(update_fields=["settings"])
 
         if language is not None:
             request.user.settings.language = language

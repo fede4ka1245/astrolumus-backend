@@ -173,12 +173,12 @@ class GenerateLoginCodeAPIView(views.APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            user = User.objects.get(email=str(serializer.data["email"]).lower())
-        except User.DoesNotExist:
-            return Response(
-                status=404, data={"message": "Пользователь не найден."}
-            )
+        email = str(serializer.data["email"]).lower()
+        default_lang = AppLanguage.objects.filter(enabled=True).order_by("id").first()
+        user, _created = User.objects.get_or_create(
+            email=email,
+            defaults={"app_language": default_lang} if default_lang else {},
+        )
 
         expiry_date = timezone.now() - timedelta(minutes=CODE_VALID_MINUTES)
 
@@ -199,23 +199,26 @@ class GenerateLoginCodeAPIView(views.APIView):
                 user=user
             )
 
-        if not SKIP_EMAIL_AUTH:
+        if SKIP_EMAIL_AUTH:
+            # dev mode — print code to logs for easy retrieval
+            print(f"[auth-dev] code for {user.email}: {password.password}", flush=True)
+        else:
+            from django.conf import settings as _settings
             try:
-                # send email TODO use user lang/templates
-                # todo get email from settings
                 send_mail(
-                    'Код доступа AlphaSpace',
+                    'Код доступа Astrolumus',
                     f'Ваш код авторизации: {password.password}',
-                    'alphaspace@alpha-astro.com',
+                    _settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                     fail_silently=False,
                 )
             except Exception as e:
+                import logging
+                logging.getLogger(__name__).exception("send_mail failed: %s", e)
                 return Response(
                     status=405, data={"message": "Произошла ошибка, попробуйте позже."}
                 )
 
-        # send
         data = {"message": "Код выслан на email"}
 
         # set tariff by default

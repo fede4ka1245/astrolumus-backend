@@ -373,3 +373,61 @@ class RecurringSubscription(models.Model):
             models.Index(fields=["subscription_id"], name="recurring_s_subscri_idx"),
             models.Index(fields=["customer_id"], name="recurring_s_custome_idx"),
         ]
+
+
+class ExternalPaymentEvent(models.Model):
+    """Audit log for inbound Boosty/Patreon webhook payloads.
+
+    Each row records the raw payload + the result of mapping it to a local
+    Tariff / User. Unmatched events stay around so admins can rebind them
+    manually (e.g. user paid before registering).
+    """
+
+    PROVIDER_BOOSTY = 'boosty'
+    PROVIDER_PATREON = 'patreon'
+    PROVIDER_CHOICES = (
+        (PROVIDER_BOOSTY, 'Boosty'),
+        (PROVIDER_PATREON, 'Patreon'),
+    )
+
+    STATUS_PENDING = 'pending'
+    STATUS_PROCESSED = 'processed'
+    STATUS_UNMATCHED = 'unmatched'
+    STATUS_INVALID = 'invalid'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Получен'),
+        (STATUS_PROCESSED, 'Активация создана'),
+        (STATUS_UNMATCHED, 'Не сопоставлено'),
+        (STATUS_INVALID, 'Неверный payload'),
+    )
+
+    provider = models.CharField(max_length=16, choices=PROVIDER_CHOICES, verbose_name='Провайдер')
+    event_type = models.CharField(max_length=64, blank=True, default='', verbose_name='Тип события')
+    external_user_id = models.CharField(max_length=128, blank=True, default='', verbose_name='ID пользователя у провайдера')
+    external_email = models.EmailField(blank=True, default='', verbose_name='Email')
+    tier_id = models.CharField(max_length=128, blank=True, default='', verbose_name='Tier / level id')
+    payload = models.JSONField(default=dict, verbose_name='Payload')
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    note = models.TextField(blank=True, default='', verbose_name='Комментарий')
+    matched_tariff = models.ForeignKey(
+        Tariff, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='external_events', verbose_name='Найденный тариф',
+    )
+    matched_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='external_payment_events', verbose_name='Найденный пользователь',
+    )
+    activation = models.ForeignKey(
+        'tariffs.ActivationTariff', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='external_events', verbose_name='Созданная активация',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Получен')
+
+    class Meta:
+        verbose_name = 'Внешний платёж (webhook)'
+        verbose_name_plural = 'Внешние платежи (webhook\'и)'
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f'[{self.provider}] {self.event_type or "?"} – {self.external_email or self.external_user_id or self.id}'
+

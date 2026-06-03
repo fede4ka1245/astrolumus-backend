@@ -25,7 +25,8 @@ class MyHoroscopeListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MyHoroscope
-        fields = ["id", "name", "city", "user", "horoscope_id", "horoscope"]
+        fields = ["id", "name", "city", "user", "horoscope_id", "horoscope", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class MyHoroscopeSerializer(serializers.ModelSerializer):
@@ -38,7 +39,13 @@ class MyHoroscopeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MyHoroscope
-        fields = ["id", "name", "city", "user", "horoscope_id", "horoscope"]
+        fields = ["id", "name", "city", "user", "horoscope_id", "horoscope", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
+        # Drop the auto-generated UniqueTogetherValidator for [horoscope, user]:
+        # auto-save re-sends the same build, and the idempotency is handled in
+        # MyHoroscopeViewSet.create (returns the existing row with 200). The DB
+        # unique_together constraint still guarantees integrity.
+        validators = []
 
 
 class SettingsSerializer(serializers.Serializer):

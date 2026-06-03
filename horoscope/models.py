@@ -41,12 +41,15 @@ class MyHoroscope(models.Model):
     user = models.ForeignKey(
         User, related_name="my_horoscopes", on_delete=models.CASCADE
     )
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
         return str(self.user.email)
 
     class Meta:
         unique_together = [["horoscope", "user"]]
+        ordering = ["-created_at"]
         verbose_name = "Мой гороскоп"
         verbose_name_plural = "Мои гороскопы"
 

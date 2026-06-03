@@ -160,6 +160,44 @@ class Tariff(models.Model):
     price_eur = models.DecimalField("Цена (EUR)", max_digits=10, decimal_places=2, default=0,
                                    help_text="Цена в евро")
 
+    # ----- Astrolumus AI assistant quota -----
+    assistant_enabled = models.BooleanField(
+        "Доступ к ассистенту", default=False,
+        help_text="Если выключено — пользователь, у которого активен только этот тариф, не может писать ассистенту")
+    assistant_requests_per_month = models.PositiveIntegerField(
+        "Запросов к ассистенту в месяц", default=0,
+        help_text="0 — без месячного лимита")
+    assistant_requests_per_day = models.PositiveIntegerField(
+        "Запросов к ассистенту в день", default=0,
+        help_text="0 — без дневного лимита")
+
+    # ----- Tarot quota -----
+    tarot_enabled = models.BooleanField(
+        "Доступ к раскладам Таро", default=False,
+        help_text="Если выключено — пользователь, у которого активен только этот тариф, не может делать расклады")
+    tarot_requests_per_month = models.PositiveIntegerField(
+        "Раскладов Таро в месяц", default=0,
+        help_text="0 — без месячного лимита")
+    tarot_requests_per_day = models.PositiveIntegerField(
+        "Раскладов Таро в день", default=0,
+        help_text="0 — без дневного лимита")
+
+    # ----- Boosty -----
+    boosty_url = models.URLField(
+        "Boosty checkout URL", max_length=500, null=True, blank=True,
+        help_text="Куда уходит пользователь по кнопке «Оплатить через Boosty». Пустое поле прячет кнопку.")
+    boosty_subscription_level_id = models.CharField(
+        "Boosty subscription level id", max_length=128, null=True, blank=True,
+        help_text="Webhook сопоставляет это значение с уровнем подписки в Boosty (поле subscription_level.id).")
+
+    # ----- Patreon -----
+    patreon_url = models.URLField(
+        "Patreon checkout URL", max_length=500, null=True, blank=True,
+        help_text="Куда уходит пользователь по кнопке «Оплатить через Patreon». Пустое поле прячет кнопку.")
+    patreon_tier_id = models.CharField(
+        "Patreon tier id", max_length=128, null=True, blank=True,
+        help_text="Webhook сопоставляет это значение с tier id в Patreon (data.relationships.currently_entitled_tiers.data[].id).")
+
     objects = TariffManager()
 
     def __str__(self):

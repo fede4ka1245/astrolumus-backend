@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import Order, PaymentSettings, PaymentRecord, RecurringSubscription
+from .models import (
+    ExternalPaymentEvent,
+    Order,
+    PaymentSettings,
+    PaymentRecord,
+    RecurringSubscription,
+)
 
 
 @admin.register(PaymentSettings)
@@ -109,6 +115,40 @@ class PaymentRecordAdmin(admin.ModelAdmin):
         return "-"
     merchant_full_name.short_description = "Имя при оплате"
     merchant_full_name.admin_order_field = "merchant_first_name"
+
+
+@admin.register(ExternalPaymentEvent)
+class ExternalPaymentEventAdmin(admin.ModelAdmin):
+    """Audit log of inbound Boosty / Patreon webhook events."""
+
+    list_display = (
+        "id", "created_at", "provider", "event_type", "status",
+        "external_email", "tier_id", "matched_tariff", "matched_user",
+    )
+    list_filter = ("provider", "status", "created_at")
+    search_fields = (
+        "external_email", "external_user_id", "tier_id",
+        "matched_user__email", "matched_tariff__code",
+    )
+    readonly_fields = ("created_at", "payload")
+    autocomplete_fields = ("matched_tariff", "matched_user", "activation")
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+    fieldsets = (
+        (None, {
+            "fields": ("provider", "event_type", "status", "note", "created_at"),
+        }),
+        ("Источник", {
+            "fields": ("external_user_id", "external_email", "tier_id"),
+        }),
+        ("Сопоставление", {
+            "fields": ("matched_tariff", "matched_user", "activation"),
+        }),
+        ("Payload", {
+            "fields": ("payload",),
+            "classes": ("collapse",),
+        }),
+    )
 
 
 @admin.register(RecurringSubscription)

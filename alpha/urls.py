@@ -78,9 +78,18 @@ urlpatterns = [
     path("info/", include(("info.urls", "info"), namespace="info")),
     path("tariffs/", include(("tariffs.urls", "tariffs"), namespace="tariffs")),
     path(
+        "assistant/",
+        include(("assistant_quota.urls", "assistant_quota"), namespace="assistant_quota"),
+    ),
+    path(
+        "tarot/",
+        include(("tarot.urls", "tarot"), namespace="tarot"),
+    ),
+    path(
         "astroprocessor/",
         include(("astroprocessor.urls", "astroprocessor"), namespace="astroprocessor"),
     ),
+    path("consultations/", include(("consultations.urls", "consultations"), namespace="consultations")),
     path("fcm/", include(("FCM.urls", "FCM"), namespace="FCM")),
     # Proxy to j108.net API (requires authentication)
     path("api/j108/", j108_proxy, name="j108_proxy_root"),

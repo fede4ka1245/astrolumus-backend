@@ -5,7 +5,7 @@ services:
     expose:
       - 5432
     ports:
-      - "5432:5432"
+      - "127.0.0.1:15432:5432"
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
@@ -28,7 +28,7 @@ services:
     image: redis:alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:16379:6379"
     volumes:
       - redis:/data
     healthcheck:
@@ -57,8 +57,8 @@ services:
       - data1-1:/data1
       - data1-2:/data2
     ports:
-      - "9000:9000" # TODO close this
-      - "9001:9001" # TODO close this
+      - "127.0.0.1:19000:9000" # TODO close this
+      - "127.0.0.1:19001:9001" # TODO close this
 
   analytics-db:
     image: postgres:14.12-bullseye
@@ -66,7 +66,7 @@ services:
     expose:
       - 5432
     ports:
-      - "127.0.0.1:5434:5432"
+      - "127.0.0.1:15434:5432"
     environment:
       - POSTGRES_USER=${ANALYTICS_DB_USER:-analytics}
       - POSTGRES_PASSWORD=${ANALYTICS_DB_PASSWORD:-analytics123}
@@ -86,7 +86,7 @@ services:
     expose:
       - 5433
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:15433:5432"
     environment:
       - POSTGRES_USER=${PREVIEW_DB_USER:-app_preview}
       - POSTGRES_PASSWORD=${PREVIEW_DB_PASSWORD:-d43skeJSWn7365}
@@ -104,10 +104,9 @@ services:
     build:
       context: ./app-preview-main
       dockerfile: Dockerfile
-    image: alpha/app-preview:${APP_VERSION:-latest}
+    image: astrolumus/app-preview:${APP_VERSION:-latest}
     restart: unless-stopped
     working_dir: /app
-    container_name: "app-preview"
     env_file:
       - .env
     environment:
@@ -117,7 +116,7 @@ services:
       - BASE_URL=https://app.alpha-astro.com
       - DATABASE_URL=postgresql://${PREVIEW_DB_USER}:${PREVIEW_DB_PASSWORD}@${PREVIEW_DB_HOST}:${PREVIEW_DB_PORT}/${PREVIEW_DB_NAME}?connect_timeout=300
     ports:
-      - "3000:3000"
+      - "127.0.0.1:13000:3000"
     command: "pm2-runtime start npm --name app -- run start -- -p 3000"
     depends_on:
       preview-db:
@@ -125,7 +124,7 @@ services:
 
   celery:
     restart: unless-stopped
-    image: alpha/celery:${APP_VERSION:-latest}
+    image: astrolumus/celery:${APP_VERSION:-latest}
     env_file:
       - .env
     build:
@@ -165,7 +164,7 @@ services:
 
   celery-beat:
     restart: unless-stopped
-    image: alpha/celery-beat:${APP_VERSION:-latest}
+    image: astrolumus/celery-beat:${APP_VERSION:-latest}
     env_file:
       - .env
     build:
@@ -205,7 +204,7 @@ services:
     image: tolgee/tolgee:latest
     restart: unless-stopped
     ports:
-      - "8085:8085"
+      - "127.0.0.1:18085:8085"
     environment:
       TOLGEE_AUTHENTICATION_ENABLED: "true"
       TOLGEE_AUTHENTICATION_INITIAL_USERNAME: "${TOLGEE_ADMIN_USER:-admin}"
@@ -220,7 +219,7 @@ services:
     image: metabase/metabase:latest
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "127.0.0.1:13001:3000"
     environment:
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: metabase
@@ -237,13 +236,13 @@ services:
 
   alpha-application:
     restart: unless-stopped
-    image: alpha/app:${APP_VERSION:-latest}
+    image: astrolumus/app:${APP_VERSION:-latest}
     expose:
       - 8091
     env_file:
       - .env
     ports:
-      - "8091:8091"
+      - "18091:8091"
     build:
       context: .
       dockerfile: Dockerfile

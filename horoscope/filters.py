@@ -31,6 +31,7 @@ class MyHoroscopeFilter(django_filters.FilterSet):
         fields=(
             ('name', 'name'),
             ('id', 'id'),
+            ('created_at', 'created_at'),
         ),
     )
 

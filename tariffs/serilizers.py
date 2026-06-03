@@ -80,7 +80,13 @@ class PublicTariffSerializer(
 
     class Meta:
         model = Tariff
-        fields = ['id', 'code', 'title', 'public_description', 'validity_days', 'tariff_link', 'prices', 'price_rub', 'price_byn', 'price_usd', 'price_eur']
+        fields = [
+            'id', 'code', 'title', 'public_description', 'validity_days',
+            'tariff_link', 'prices', 'price_rub', 'price_byn', 'price_usd', 'price_eur',
+            'assistant_enabled', 'assistant_requests_per_month', 'assistant_requests_per_day',
+            'tarot_enabled', 'tarot_requests_per_month', 'tarot_requests_per_day',
+            'boosty_url', 'patreon_url',
+        ]
 
 
 class FullTariffSerializer(serializers.ModelSerializer):
@@ -114,4 +120,10 @@ class FullTariffSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tariff
-        fields = ['id', 'code', 'title', 'public_description', 'validity_days', 'tariff_link', 'prices', 'price_rub', 'price_byn', 'price_usd', 'price_eur']
+        fields = [
+            'id', 'code', 'title', 'public_description', 'validity_days',
+            'tariff_link', 'prices', 'price_rub', 'price_byn', 'price_usd', 'price_eur',
+            'assistant_enabled', 'assistant_requests_per_month', 'assistant_requests_per_day',
+            'tarot_enabled', 'tarot_requests_per_month', 'tarot_requests_per_day',
+            'boosty_url', 'patreon_url',
+        ]
