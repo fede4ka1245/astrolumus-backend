@@ -158,7 +158,7 @@ CONTACTS_HTML = """\
 <ul>
   <li><strong>Электронная почта:</strong> <a href="mailto:astrolumus.ru@yandex.ru">astrolumus.ru@yandex.ru</a></li>
   <li><strong>Телефон:</strong> +7 (952) 132-35-53</li>
-  <li><strong>Поддержка в Telegram:</strong> <a href="https://t.me/GermanYusupov">@GermanYusupov</a></li>
+  <li><strong>Поддержка в Telegram:</strong> <a href="https://t.me/astrolumus">@astrolumus</a></li>
 </ul>
 <p>Мы отвечаем по вопросам оплаты, доступа, возврата и работы сервиса.</p>
 
