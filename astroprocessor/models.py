@@ -55,8 +55,8 @@ class PlanetHouseConnection(models.Model):
 
 class MasterHouseConnection(models.Model):
     name = models.JSONField("Имя")
-    planet = models.IntegerField("Планета")
-    house = models.IntegerField("Дом")
+    master_house = models.IntegerField("Управитель дома")
+    at_house = models.IntegerField("В доме")
     description = models.JSONField("Описание", blank=True, null=True)
 
     class Meta:

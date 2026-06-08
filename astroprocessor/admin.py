@@ -57,7 +57,7 @@ class MasterHouseConnectionAdmin(LocalizedModelAdmin):
     def description_html(obj):
         return mark_safe(get_default_language_value_admin(obj.description))
 
-    search_fields = ["planet", "house"]
+    search_fields = ["master_house", "at_house"]
     localized_fields = ("name", "description")
-    list_display = ["id", "default_localized_name", "planet", "house", "description_html"]
-    list_filter = ["planet", "house"]
+    list_display = ["id", "default_localized_name", "master_house", "at_house", "description_html"]
+    list_filter = ["master_house", "at_house"]
