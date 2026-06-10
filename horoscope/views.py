@@ -1,4 +1,7 @@
+import logging
+
 from django.db import IntegrityError
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status
 from rest_framework.decorators import action
@@ -16,6 +19,8 @@ from .serializers import (
     HoroscopeCacheSerializer,
     SettingsSerializer, MyHoroscopeListSerializer
 )
+
+logger = logging.getLogger(__name__)
 
 
 class HoroscopePagination(PageNumberPagination):
@@ -60,6 +65,37 @@ class MyHoroscopeViewSet(mixins.CreateModelMixin,
 
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        # Backfill the user's profile birth_date from this horoscope if not yet set.
+        # Only fills empty fields — never overwrites user-set values.
+        try:
+            from users.models import UserProfile
+            profile, _ = UserProfile.objects.get_or_create(user=instance.user)
+            horoscope = instance.horoscope
+            if not profile.birth_date and horoscope.dt:
+                # horoscope.dt encodes the birth WALL-CLOCK time, not a real
+                # UTC instant: the client posts a naive "YYYY-MM-DD HH:mm:ss"
+                # local birth string which DRF interprets in the server's
+                # current timezone (settings.TIME_ZONE) before storing as UTC,
+                # and serializes back in that same timezone (the frontend then
+                # slices the ISO string and shows it as the birth time,
+                # ignoring tz_hour/tz_minutes). localtime() inverts that
+                # round-trip exactly, recovering the local birth date for any
+                # birth timezone; dt.date() (the UTC date) would shift births
+                # near midnight onto the wrong day, and applying
+                # tz_hour/tz_minutes would be wrong because dt was never
+                # normalized with them in the first place.
+                profile.birth_date = timezone.localtime(horoscope.dt).date()
+                profile.save(update_fields=["birth_date"])
+        except Exception:
+            # Backfill is best-effort; never block the horoscope save.
+            logger.warning(
+                "my-horoscope create: birth_date backfill failed for user %s",
+                getattr(instance, "user_id", None),
+                exc_info=True,
+            )
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
