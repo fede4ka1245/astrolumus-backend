@@ -260,6 +260,7 @@ class ValidateLoginCodeAPIView(views.APIView):
                 defaults={"app_language": AppLanguage.objects.order_by("id").first()},
             )
             Tariff.objects.get_user_tariff(user=user)
+            UserProfile.objects.get_or_create(user=user)
             data = user.generate_tokens()
             user.last_login = now()
             user.save()
@@ -281,6 +282,7 @@ class ValidateLoginCodeAPIView(views.APIView):
             return Response(status=405, data={"message": "Неверный пароль."})
         else:
             password.delete()  # delete all tokens
+            UserProfile.objects.get_or_create(user=user)
             data = user.generate_tokens()
 
             user.last_login = now()
