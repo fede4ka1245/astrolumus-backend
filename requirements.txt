@@ -354,7 +354,7 @@ wrapt==1.14.1
     #   pytest-lambda
 wsproto==1.2.0
     # via trio-websocket
-yookassa==2.3.2
+yookassa==3.10.1
     # via -r requirements.in
 zope-interface==5.4.0
     # via twisted

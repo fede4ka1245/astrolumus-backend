@@ -343,6 +343,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "analytics.sync_to_analytics_db",
         "schedule": 3600,  # every hour
     },
+    "renew-due-subscriptions": {
+        "task": "assistant_quota.tasks.renew_due_subscriptions",
+        "schedule": 86400,  # daily
+    },
 }
 
 # Email code lifetime
@@ -353,6 +357,16 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=365),
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
     "ROTATE_REFRESH_TOKENS": True,
+}
+
+# Users who get unlimited AI-assistant requests regardless of their tariff.
+# Comma/whitespace-separated list of emails; matched case-insensitively.
+ASSISTANT_UNLIMITED_EMAILS = {
+    e.strip().lower()
+    for e in os.getenv(
+        "ASSISTANT_UNLIMITED_EMAILS", "bragin.fedor96@gmail.com"
+    ).replace(",", " ").split()
+    if e.strip()
 }
 
 # A list of all the people who get code error notifications.
@@ -395,13 +409,26 @@ STRIPE_SUCCESS_URL = os.getenv("STRIPE_SUCCESS_URL", "https://app.staging.alpha-
 STRIPE_CANCEL_URL = os.getenv("STRIPE_CANCEL_URL", "https://app.staging.alpha-astro.com/payment")
 BEPAID_WEBHOOK_BASE_URL = os.getenv("BEPAID_WEBHOOK_BASE_URL", "https://backm.staging.alpha-astro.com")
 
+# YooKassa (request-pack purchases for the AI assistant). Read shop_id/secret
+# from env; if unset, the purchase endpoint returns a clear error instead of
+# crashing. The return_url is where YooKassa redirects the user after payment.
+YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID") or os.getenv("YOOKASSA_ACCOUNT_ID")
+YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
+YOOKASSA_RETURN_URL = os.getenv(
+    "YOOKASSA_RETURN_URL", "https://app.staging.alpha-astro.com/app"
+)
+# Restrict the YooKassa webhook to YooKassa's documented IP ranges. Defaults to
+# ON in prod (DEBUG=0); set YOOKASSA_WEBHOOK_IP_CHECK=0 to disable for local
+# testing (the webhook still re-verifies every notification against the
+# YooKassa API regardless of this flag).
+YOOKASSA_WEBHOOK_IP_CHECK = os.getenv(
+    "YOOKASSA_WEBHOOK_IP_CHECK", "0" if DEBUG else "1"
+).lower() in ("true", "1")
+
 J108_LOGIN = os.getenv("J108_LOGIN")
 J108_PASSWORD = os.getenv("J108_PASSWORD")
 J108_API_KEY = os.getenv("J108_API_KEY")
 J108_API_URL = os.getenv("J108_API_URL", "https://j108.net/api")
-
-YOOKASSA_ACCOUNT_ID = os.getenv("YOOKASSA_ACCOUNT_ID")
-YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 
 FIREBASE_APP = None
 try:
