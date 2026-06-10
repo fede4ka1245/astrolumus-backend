@@ -158,12 +158,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class BlockedUserSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if data["user_dst"] == self.context.get("request").user:
-            raise serializers.ValidationError("You can not blocked to yourself")
+            raise serializers.ValidationError("Нельзя заблокировать самого себя")
 
         if BlockedUser.objects.filter(
                 user_dst=data["user_dst"], user_src=self.context.get("request").user
         ).first():
-            raise serializers.ValidationError("Duplication object")
+            raise serializers.ValidationError("Такая запись уже существует")
         return data
 
     class Meta:
@@ -285,17 +285,17 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             raise ValidationError("{user_dst_id: id} required")
 
         if data["user_dst_id"] == self.context.get("request").user.id:
-            raise serializers.ValidationError("You can not subscription to yourself")
+            raise serializers.ValidationError("Нельзя подписаться на самого себя")
 
         if not User.objects.filter(pk=data["user_dst_id"]).exists():
-            raise serializers.ValidationError("user with this user_dst_id does not exist")
+            raise serializers.ValidationError("Пользователь не найден")
 
         subscription = Subscription.objects.filter(
             user_dst_id=data["user_dst_id"], user_src=self.context.get("request").user
         ).first()
 
         if subscription:
-            raise serializers.ValidationError("Duplication object")
+            raise serializers.ValidationError("Такая запись уже существует")
         return data
 
     class Meta:

@@ -19,7 +19,7 @@ class SearchMixin:
 
         keywords = request.GET.get('query')
         if not keywords:
-            raise NotAcceptable('Search query required')
+            raise NotAcceptable('Не указан поисковый запрос')
 
         keywords = f'\'{keywords}\':*'
         query = SearchQuery(keywords, search_type='raw', config='russian')

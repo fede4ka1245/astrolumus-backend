@@ -220,11 +220,11 @@ class TopicSerializer(TopicListSerializer):
         if data.get("published_at", None):
             errors = {}
             if not data.get("description", None):
-                errors["description"] = "This field is required"
+                errors["description"] = "Это поле обязательно"
             if not data.get("title", None):
-                errors["title"] = "This field is required"
+                errors["title"] = "Это поле обязательно"
             if not data.get("category", None):
-                errors["category"] = "This field is required"
+                errors["category"] = "Это поле обязательно"
 
             if errors:
                 raise ValidationError(errors)
@@ -288,7 +288,7 @@ class RecursiveField(serializers.BaseSerializer):
             instance = Model.objects.get(pk=data)
         except ObjectDoesNotExist:
             raise serializers.ValidationError(
-                "Objeto {0} does not exists".format(
+                "Объект {0} не существует".format(
                     Model().__class__.__name__
                 )
             )
@@ -354,7 +354,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
         # validate that topic has text or image ether
         if not data.get("text", None) and not data.get("image", None):
-            raise ValidationError("Image or text required")
+            raise ValidationError("Нужно добавить текст или изображение")
 
         # validate user took a part in members
         if "request" in self.context and self.context["request"].user.is_authenticated:

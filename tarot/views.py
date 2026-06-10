@@ -94,7 +94,7 @@ def reading_create(request):
     question = (request.data.get("question") or "").strip()
 
     if not spread_code:
-        return Response({"detail": "spread is required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"detail": "Не указан расклад"}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         spread = TarotSpread.objects.get(code=spread_code, is_active=True)
