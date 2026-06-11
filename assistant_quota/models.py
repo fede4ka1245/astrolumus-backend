@@ -530,3 +530,36 @@ def subscription_status(user) -> dict:
         "auto_renew": sub.auto_renew,
         "sections": list(UNLOCKED_SECTIONS),
     }
+
+
+class AssistantChat(models.Model):
+    """Per-horoscope assistant chat persisted for an authenticated user.
+
+    Keyed by the client-computed ``chart_id`` so each horoscope keeps its own
+    conversation. The ``messages`` array is stored verbatim as supplied by the
+    client.
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="assistant_chats",
+        verbose_name="Пользователь",
+    )
+    chart_id = models.SlugField("Идентификатор гороскопа", max_length=64)
+    subject = models.TextField("Гороскоп", blank=True, default="")
+    key = models.CharField("Ключ анализа", max_length=64, blank=True, default="")
+    question = models.TextField("Вопрос", blank=True, default="")
+    context = models.TextField("Контекст", blank=True, default="")
+    messages = models.JSONField("Сообщения", default=list)
+    created_at = models.DateTimeField("Создан", auto_now_add=True)
+    updated_at = models.DateTimeField("Обновлён", auto_now=True)
+
+    def __str__(self):
+        return f"{self.user_id}:{self.chart_id}"
+
+    class Meta:
+        verbose_name = "Чат ассистента"
+        verbose_name_plural = "Чаты ассистента"
+        unique_together = (("user", "chart_id"),)
+        ordering = ("-updated_at",)
