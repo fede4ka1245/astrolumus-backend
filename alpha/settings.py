@@ -347,6 +347,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "assistant_quota.tasks.renew_due_subscriptions",
         "schedule": 86400,  # daily
     },
+    "resolve-stuck-payments": {
+        "task": "assistant_quota.tasks.resolve_stuck_payments",
+        "schedule": 300,  # every 5 minutes
+    },
 }
 
 # Email code lifetime
