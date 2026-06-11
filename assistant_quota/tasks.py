@@ -186,6 +186,7 @@ def renew_due_subscriptions():
                     "subscription_payment_id": payment.id,
                     "kind": "subscription",
                 },
+                customer_email=sub.user.email,
             )
             payment.provider_payment_id = payment_id or ""
             payment.save(update_fields=["provider_payment_id", "updated_at"])
