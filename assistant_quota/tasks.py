@@ -5,7 +5,7 @@ from celery import shared_task
 from django.utils import timezone
 
 from . import yookassa_gateway
-from .models import Subscription, SubscriptionPayment
+from .models import RequestPackPurchase, Subscription, SubscriptionPayment
 
 logger = logging.getLogger(__name__)
 
@@ -226,3 +226,85 @@ def renew_due_subscriptions():
         renewed, failed, in_flight,
     )
     return {"renewed": renewed, "failed": failed, "in_flight": in_flight}
+
+
+# Server-side fallback for the YooKassa callback (HTTP-уведомления). The
+# client-side poll on the return page finalizes most payments, but a user who
+# closes the tab before it completes leaves a paid-but-pending row behind —
+# forever, if the dashboard webhook is not configured. This task re-checks
+# recent pending one-off payments against the provider and finalizes them
+# with the same idempotent methods the webhook/poll endpoints use.
+#
+# Renewal charges (is_renewal=True) are deliberately excluded: they are
+# resolved by renew_due_subscriptions/resolve_pending_renewals, which has
+# stricter double-charge protection.
+RESOLVE_MIN_AGE = timedelta(minutes=2)   # don't race a checkout in progress
+RESOLVE_MAX_AGE = timedelta(days=2)      # bound provider API calls per run
+
+
+@shared_task
+def resolve_stuck_payments():
+    now = timezone.now()
+    window = (now - RESOLVE_MAX_AGE, now - RESOLVE_MIN_AGE)
+    credited = canceled = checked = 0
+
+    packs = RequestPackPurchase.objects.filter(
+        status=RequestPackPurchase.STATUS_PENDING,
+        created_at__range=window,
+    ).exclude(provider_payment_id="")
+    for purchase in packs:
+        checked += 1
+        try:
+            remote_status = yookassa_gateway.fetch_payment(purchase.provider_payment_id)
+        except Exception as exc:  # pragma: no cover - network/provider errors
+            logger.warning(
+                "resolve_stuck_payments: pack purchase %s check failed: %s",
+                purchase.id, exc,
+            )
+            continue
+        if remote_status == "succeeded":
+            purchase.mark_succeeded_and_credit()
+            credited += 1
+            logger.info("resolve_stuck_payments: credited pack purchase %s", purchase.id)
+        elif remote_status == "canceled":
+            purchase.status = RequestPackPurchase.STATUS_CANCELED
+            purchase.save(update_fields=["status", "updated_at"])
+            canceled += 1
+
+    payments = SubscriptionPayment.objects.filter(
+        status=SubscriptionPayment.STATUS_PENDING,
+        is_renewal=False,
+        created_at__range=window,
+    ).exclude(provider_payment_id="")
+    for payment in payments:
+        checked += 1
+        try:
+            remote_status, method_id = yookassa_gateway.fetch_payment_info(
+                payment.provider_payment_id
+            )
+        except Exception as exc:  # pragma: no cover - network/provider errors
+            logger.warning(
+                "resolve_stuck_payments: subscription payment %s check failed: %s",
+                payment.id, exc,
+            )
+            continue
+        if remote_status == "succeeded":
+            if method_id and not payment.provider_payment_method_id:
+                payment.provider_payment_method_id = method_id
+                payment.save(update_fields=["provider_payment_method_id", "updated_at"])
+            payment.mark_succeeded_and_activate()
+            credited += 1
+            logger.info(
+                "resolve_stuck_payments: activated subscription payment %s", payment.id
+            )
+        elif remote_status == "canceled":
+            payment.status = SubscriptionPayment.STATUS_CANCELED
+            payment.save(update_fields=["status", "updated_at"])
+            canceled += 1
+
+    if checked:
+        logger.info(
+            "resolve_stuck_payments: checked=%s credited=%s canceled=%s",
+            checked, credited, canceled,
+        )
+    return {"checked": checked, "credited": credited, "canceled": canceled}
