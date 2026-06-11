@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    assistant_chat_detail,
     assistant_consume,
     assistant_usage,
     pack_purchase_status,
@@ -17,6 +18,7 @@ from .views import (
 urlpatterns = [
     path("usage/", assistant_usage, name="assistant_usage"),
     path("consume/", assistant_consume, name="assistant_consume"),
+    path("chats/<slug:chart_id>/", assistant_chat_detail, name="assistant_chat_detail"),
     path("packs/", request_packs_list, name="request_packs_list"),
     path("packs/<slug:code>/purchase/", purchase_pack, name="request_pack_purchase"),
     path("packs/purchases/<int:purchase_id>/status/", pack_purchase_status, name="request_pack_purchase_status"),

@@ -16,6 +16,7 @@ import uuid
 
 from django.conf import settings
 from yookassa import Configuration, Payment
+from yookassa.domain.exceptions.forbidden_error import ForbiddenError
 
 
 class NotConfigured(Exception):
@@ -39,6 +40,26 @@ def _configure():
         Configuration.configure_auth_token(secret_key)
 
 
+def _receipt(email, description, amount_value, currency):
+    """54-FZ fiscal receipt block, required on every payment because the live
+    shop has fiscalization enabled (YooKassa otherwise rejects the request
+    with "Receipt is missing or illegal"). vat_code 1 = no VAT; override via
+    YOOKASSA_VAT_CODE if the tax regime changes."""
+    return {
+        "customer": {"email": email},
+        "items": [
+            {
+                "description": description[:128],
+                "quantity": "1.00",
+                "amount": {"value": amount_value, "currency": currency},
+                "vat_code": int(getattr(settings, "YOOKASSA_VAT_CODE", 1)),
+                "payment_subject": "service",
+                "payment_mode": "full_payment",
+            }
+        ],
+    }
+
+
 def create_pack_payment(purchase, return_url):
     """Create a YooKassa payment for the given RequestPackPurchase.
 
@@ -48,18 +69,22 @@ def create_pack_payment(purchase, return_url):
     _configure()
 
     idempotence_key = str(uuid.uuid4())
+    description = f"Пакет {purchase.requests_count} запросов"
+    currency = purchase.currency or "RUB"
+    amount_value = f"{purchase.amount:.2f}"
     payment = Payment.create(
         {
             "amount": {
-                "value": f"{purchase.amount:.2f}",
-                "currency": purchase.currency or "RUB",
+                "value": amount_value,
+                "currency": currency,
             },
             "confirmation": {
                 "type": "redirect",
                 "return_url": return_url,
             },
             "capture": True,
-            "description": f"Пакет {purchase.requests_count} запросов",
+            "description": description,
+            "receipt": _receipt(purchase.user.email, description, amount_value, currency),
             "metadata": {
                 "user_id": purchase.user_id,
                 "pack_code": purchase.pack.code,
@@ -80,35 +105,47 @@ def create_subscription_payment(payment_obj, return_url):
     """Create a YooKassa payment for the given SubscriptionPayment.
 
     Requests a saved payment method (``save_payment_method=True``) so future
-    periods can be auto-charged. Returns (payment_id, confirmation_url). Raises
-    NotConfigured if the gateway credentials are missing.
+    periods can be auto-charged. If the shop has recurring payments disabled
+    (YooKassa enables them per-shop on request), falls back to a one-off
+    payment without saving the method — the subscription still activates, it
+    just won't auto-renew until YooKassa enables recurring for the shop.
+    Returns (payment_id, confirmation_url). Raises NotConfigured if the
+    gateway credentials are missing.
     """
     _configure()
 
     plan = payment_obj.plan
-    idempotence_key = str(uuid.uuid4())
-    payment = Payment.create(
-        {
-            "amount": {
-                "value": f"{payment_obj.amount:.2f}",
-                "currency": payment_obj.currency or "RUB",
-            },
-            "confirmation": {
-                "type": "redirect",
-                "return_url": return_url,
-            },
-            "capture": True,
-            "save_payment_method": True,
-            "description": f"Подписка {plan.months} мес.",
-            "metadata": {
-                "user_id": payment_obj.user_id,
-                "plan_code": plan.code,
-                "subscription_payment_id": payment_obj.id,
-                "kind": "subscription",
-            },
+    description = f"Подписка {plan.months} мес."
+    currency = payment_obj.currency or "RUB"
+    amount_value = f"{payment_obj.amount:.2f}"
+    payload = {
+        "amount": {
+            "value": amount_value,
+            "currency": currency,
         },
-        idempotence_key,
-    )
+        "confirmation": {
+            "type": "redirect",
+            "return_url": return_url,
+        },
+        "capture": True,
+        "save_payment_method": True,
+        "description": description,
+        "receipt": _receipt(payment_obj.user.email, description, amount_value, currency),
+        "metadata": {
+            "user_id": payment_obj.user_id,
+            "plan_code": plan.code,
+            "subscription_payment_id": payment_obj.id,
+            "kind": "subscription",
+        },
+    }
+    try:
+        payment = Payment.create(payload, str(uuid.uuid4()))
+    except ForbiddenError as exc:
+        content = getattr(exc, "content", None) or {}
+        if "recurring" not in str(content.get("description", "")).lower():
+            raise
+        payload.pop("save_payment_method", None)
+        payment = Payment.create(payload, str(uuid.uuid4()))
 
     confirmation_url = ""
     confirmation = getattr(payment, "confirmation", None)
@@ -117,7 +154,7 @@ def create_subscription_payment(payment_obj, return_url):
     return payment.id, confirmation_url
 
 
-def charge_saved(amount, currency, payment_method_id, description, metadata):
+def charge_saved(amount, currency, payment_method_id, description, metadata, customer_email):
     """Charge a previously saved payment method (recurring auto-renewal).
 
     Creates a captured payment with no confirmation step. Returns
@@ -126,15 +163,18 @@ def charge_saved(amount, currency, payment_method_id, description, metadata):
     _configure()
 
     idempotence_key = str(uuid.uuid4())
+    currency = currency or "RUB"
+    amount_value = f"{amount:.2f}"
     payment = Payment.create(
         {
             "amount": {
-                "value": f"{amount:.2f}",
-                "currency": currency or "RUB",
+                "value": amount_value,
+                "currency": currency,
             },
             "capture": True,
             "payment_method_id": payment_method_id,
             "description": description,
+            "receipt": _receipt(customer_email, description, amount_value, currency),
             "metadata": metadata or {},
         },
         idempotence_key,

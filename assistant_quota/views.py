@@ -15,6 +15,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models import (
+    AssistantChat,
     RequestPack,
     RequestPackPurchase,
     Subscription,
@@ -597,3 +598,61 @@ def _handle_subscription_webhook(sub_payment_id, payment_id):
 
     payment.mark_succeeded_and_activate()
     return Response({"ok": True}, status=status.HTTP_200_OK)
+
+
+# Keep only the N most recently updated chats per user.
+ASSISTANT_CHAT_KEEP = 30
+
+
+def _assistant_chat_payload(chat):
+    return {
+        "chart_id": chat.chart_id,
+        "subject": chat.subject,
+        "key": chat.key,
+        "question": chat.question,
+        "context": chat.context,
+        "messages": chat.messages,
+    }
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def assistant_chat_detail(request, chart_id):
+    """Read or upsert the authenticated user's chat for a single horoscope."""
+    if request.method == "GET":
+        chat = AssistantChat.objects.filter(user=request.user, chart_id=chart_id).first()
+        if chat is None:
+            return Response(
+                {"detail": "Чат не найден."}, status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(_assistant_chat_payload(chat))
+
+    data = request.data if isinstance(request.data, dict) else {}
+    messages = data.get("messages")
+    if messages is not None and not isinstance(messages, list):
+        return Response(
+            {"detail": "Поле messages должно быть списком."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    defaults = {
+        "subject": data.get("subject", "") or "",
+        "key": data.get("key", "") or "",
+        "question": data.get("question", "") or "",
+        "context": data.get("context", "") or "",
+        "messages": messages if messages is not None else [],
+    }
+    chat, _created = AssistantChat.objects.update_or_create(
+        user=request.user, chart_id=chart_id, defaults=defaults,
+    )
+
+    # Prune older chats: keep only the most recently updated ones per user.
+    stale_ids = list(
+        AssistantChat.objects.filter(user=request.user)
+        .order_by("-updated_at")
+        .values_list("pk", flat=True)[ASSISTANT_CHAT_KEEP:]
+    )
+    if stale_ids:
+        AssistantChat.objects.filter(pk__in=stale_ids).delete()
+
+    return Response(_assistant_chat_payload(chat))

@@ -41,6 +41,7 @@ class MyHoroscope(models.Model):
     user = models.ForeignKey(
         User, related_name="my_horoscopes", on_delete=models.CASCADE
     )
+    build_uid = models.CharField("UID построения", max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

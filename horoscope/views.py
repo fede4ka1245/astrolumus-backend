@@ -109,6 +109,11 @@ class MyHoroscopeViewSet(mixins.CreateModelMixin,
             horoscope=horoscope, user=request.user
         ).first()
         if existing is not None:
+            # Update build_uid on the existing row so it points at the latest build.
+            new_build_uid = serializer.validated_data.get("build_uid", "")
+            if new_build_uid:
+                existing.build_uid = new_build_uid
+                existing.save(update_fields=["build_uid"])
             return Response(
                 self.get_serializer(existing).data, status=status.HTTP_200_OK
             )
@@ -120,6 +125,10 @@ class MyHoroscopeViewSet(mixins.CreateModelMixin,
             existing = MyHoroscope.objects.filter(
                 horoscope=horoscope, user=request.user
             ).first()
+            new_build_uid = serializer.validated_data.get("build_uid", "")
+            if existing is not None and new_build_uid:
+                existing.build_uid = new_build_uid
+                existing.save(update_fields=["build_uid"])
             return Response(
                 self.get_serializer(existing).data, status=status.HTTP_200_OK
             )
