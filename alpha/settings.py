@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "deep_sky.apps.DeepSkyConfig",
     "tariffs.apps.TariffsConfig",
     "assistant_quota.apps.AssistantQuotaConfig",
+    "business_leads.apps.BusinessLeadsConfig",
     "advertising.apps.AdvertisingConfig",
     "chat.apps.ChatConfig",
     "complaints.apps.ComplaintsConfig",
