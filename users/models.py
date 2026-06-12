@@ -102,7 +102,7 @@ class UserManager(BaseUserManager):
 
 
 class Settings(models.Model):
-    language = models.CharField(max_length=10, default='en')
+    language = models.CharField(max_length=10, default='ru')
     arudha_scheme = models.IntegerField(default=1)
 
 

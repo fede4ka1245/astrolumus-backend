@@ -83,12 +83,12 @@ class AssistantUsage(models.Model):
 class RequestBalance(models.Model):
     """Pure credit balance of AI-assistant requests for a single user.
 
-    Created lazily on first access; the very first creation grants 2 free
-    requests (the "2 free after registration" bonus). The balance never
+    Created lazily on first access; the very first creation grants 7 free
+    requests (the "7 free after registration" bonus). The balance never
     resets — it only goes up via pack purchases and down via consumption.
     """
 
-    FREE_GRANT = 2
+    FREE_GRANT = 7
 
     user = models.OneToOneField(
         User,
