@@ -181,6 +181,11 @@ services:
   alpha-application:
     restart: unless-stopped
     image: alpha/app:${APP_VERSION:-latest}
+    # DNS resolves api.telegram.org to a Telegram DC IP that is blocked from this
+    # RU datacenter; pin it to the reachable Bot API IP so lead/consultation
+    # notifications can be delivered (see alpha/notifications.py).
+    extra_hosts:
+      - "api.telegram.org:149.154.167.220"
     expose:
       - 8091
     env_file:
