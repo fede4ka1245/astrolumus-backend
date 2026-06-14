@@ -1,10 +1,13 @@
 from django.conf import settings
 from django.core.mail import send_mail
+from django.utils.html import escape
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+
+from alpha.notifications import send_telegram
 
 from .serializers import BusinessLeadSerializer
 
@@ -28,6 +31,15 @@ class BusinessLeadView(APIView):
         serializer = BusinessLeadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         lead = serializer.save()
+
+        send_telegram(
+            "🏢 <b>Новая заявка с лендинга /business</b>\n"
+            f"<b>Имя:</b> {escape(lead.name)}\n"
+            f"<b>Контакт:</b> {escape(lead.contact)}\n"
+            f"<b>Комментарий:</b> {escape(lead.comment) if lead.comment else '—'}\n"
+            f"<b>Источник:</b> {escape(lead.source)}\n"
+            f"<i>{lead.created_at:%d.%m.%Y %H:%M}</i>"
+        )
 
         recipients = [email for _, email in getattr(settings, "ADMINS", [])]
         if recipients:

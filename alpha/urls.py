@@ -86,6 +86,7 @@ urlpatterns = [
         include(("astroprocessor.urls", "astroprocessor"), namespace="astroprocessor"),
     ),
     path("business/", include(("business_leads.urls", "business_leads"), namespace="business_leads")),
+    path("consultations/", include(("consultations.urls", "consultations"), namespace="consultations")),
     path("fcm/", include(("FCM.urls", "FCM"), namespace="FCM")),
     # Proxy to j108.net API (requires authentication)
     path("api/j108/", j108_proxy, name="j108_proxy_root"),

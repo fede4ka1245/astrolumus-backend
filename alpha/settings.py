@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "tariffs.apps.TariffsConfig",
     "assistant_quota.apps.AssistantQuotaConfig",
     "business_leads.apps.BusinessLeadsConfig",
+    "consultations.apps.ConsultationsConfig",
     "advertising.apps.AdvertisingConfig",
     "chat.apps.ChatConfig",
     "complaints.apps.ComplaintsConfig",
@@ -374,6 +375,12 @@ J108_LOGIN = os.getenv("J108_LOGIN")
 J108_PASSWORD = os.getenv("J108_PASSWORD")
 J108_API_KEY = os.getenv("J108_API_KEY")
 J108_API_URL = os.getenv("J108_API_URL", "https://j108.net/api")
+
+# Telegram notifications for inbound leads (B2B landing + consultation bookings).
+# Sent to the "astrolumus-заявки" group via the @astrolumus_super_bot. Both unset
+# in local dev → notifications no-op (see alpha/notifications.py).
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_LEADS_CHAT_ID = os.getenv("TELEGRAM_LEADS_CHAT_ID", "")
 
 YOOKASSA_ACCOUNT_ID = os.getenv("YOOKASSA_ACCOUNT_ID")
 # YooKassa (request-pack purchases for the AI assistant). Read shop_id/secret
